@@ -3,6 +3,7 @@
 // this file, never api/usersApi.js or api/authApi.js directly.
 import * as authApi from '../api/authApi';
 import * as usersApi from '../api/usersApi';
+import { TEMP_PASSWORD } from '../appConfig';
 
 export function listUsers() {
   return usersApi.listUserProfiles();
@@ -17,7 +18,9 @@ export function defaultDisplayNameFromEmail(email) {
 
 function randomTempPassword() {
   // Shown once to the admin to hand off to the new user; the user should
-  // change it after first login (see authService.changePassword).
+  // change it after first login (see authService.changePassword). A fixed
+  // value can be set via VITE_TEMP_PASSWORD instead of a random one per user.
+  if (TEMP_PASSWORD) return TEMP_PASSWORD;
   return Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
 }
 
