@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // "Active" means: has a profile doc, and it isn't disabled. Revoked users
+    // (profile deleted or disabled) fail this even though their underlying
+    // Firebase Auth credential still exists — see userService.revokeUser.
+    function isActive() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && myProfile().disabled == false;
+    }
+
+    function isAdmin() {
+      return isActive() && myProfile().role == 'admin';
+    }
+
+    // Users can read their own profile (needed at login to check
+    // disabled/role); admins can read and manage everyone's.
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Shared inventory: any active (non-disabled) user can see and manage
+    // every item — there's no per-user ownership restriction, matching the
+    // "shared pantry list" use case.
+    match /items/{itemId} {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isActive();
+    }
+  }
+}
