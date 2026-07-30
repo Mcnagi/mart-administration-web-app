@@ -58,15 +58,18 @@ management (creating/disabling/promoting/deleting users) is admin-only.
 3. **Firestore Database** → create database (start in production mode — the
    rules below replace the defaults).
 4. **Project settings** → General → Your apps → Add app → Web. Copy the
-   config values into a `.env.local` file (copy `.env.example` and fill it in).
-5. Deploy the security rules in `firestore.rules`:
+   config values into a `.env` file (copy `.env.example` and fill it in —
+   `.env` is gitignored so real credentials never get committed). Optionally
+   set `VITE_APP_NAME` there too (defaults to `MartAdmin`).
+5. Copy `.firebaserc.example` to `.firebaserc` and set your project ID (also
+   gitignored), or run `firebase use --add` to generate it.
+6. Deploy the security rules in `firestore.rules`:
    ```
    npm install -g firebase-tools   # if you don't have it
    firebase login
-   firebase use --add              # pick your project, this updates .firebaserc
    firebase deploy --only firestore:rules
    ```
-6. **Bootstrap the first admin** (one-time, done by hand — the app itself has
+7. **Bootstrap the first admin** (one-time, done by hand — the app itself has
    no way to create the very first admin, since creating a profile requires
    already being an admin):
    - In **Authentication → Users**, click "Add user", enter your email and a

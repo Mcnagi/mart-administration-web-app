@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../services/authService';
+import { APP_NAME } from '../appConfig';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
@@ -28,7 +29,7 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <form className="auth-form" onSubmit={handleSubmit}>
-        <h1>eMart</h1>
+        <h1>{APP_NAME}</h1>
         <p className="auth-subtitle">Sign in to your account</p>
         <label>
           Email

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { logout } from '../services/authService';
+import { APP_NAME } from '../appConfig';
 
 export default function NavBar() {
   const { profile, isAdmin } = useAuth();
@@ -8,7 +9,7 @@ export default function NavBar() {
   return (
     <nav className="navbar">
       <div className="navbar-top">
-        <span className="navbar-brand">eMart</span>
+        <span className="navbar-brand">{APP_NAME}</span>
         <button className="btn-link" onClick={() => logout()}>
           Log out
         </button>

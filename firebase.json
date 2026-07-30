@@ -1,15 +1,15 @@
 {
   "hosting": {
-    "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
     ]
   },
   "firestore": {
+    "database": "(default)",
+    "location": "australia-southeast1",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   }
