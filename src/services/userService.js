@@ -8,6 +8,13 @@ export function listUsers() {
   return usersApi.listUserProfiles();
 }
 
+// Used both as the initial value when an admin creates an account and as a
+// display-time fallback for profiles that predate the displayName field
+// (e.g. a first admin bootstrapped by hand per the README).
+export function defaultDisplayNameFromEmail(email) {
+  return (email || '').split('@')[0];
+}
+
 function randomTempPassword() {
   // Shown once to the admin to hand off to the new user; the user should
   // change it after first login (see authService.changePassword).
@@ -25,10 +32,21 @@ export async function createUser(email, { role = 'user' } = {}) {
   const uid = await authApi.createUserOnSecondaryApp(trimmedEmail, tempPassword);
   await usersApi.createUserProfile(uid, {
     email: trimmedEmail,
+    displayName: defaultDisplayNameFromEmail(trimmedEmail),
     role,
     disabled: false,
   });
   return { uid, tempPassword };
+}
+
+// Self-service: a user changing their own display name. Firestore rules
+// restrict this to only the displayName field, so it can't be used to
+// smuggle in a role/disabled change.
+export function updateOwnDisplayName(uid, displayName) {
+  const trimmed = (displayName ?? '').trim();
+  if (!trimmed) throw new Error('Display name cannot be empty.');
+  if (trimmed.length > 60) throw new Error('Display name is too long.');
+  return usersApi.updateUserProfile(uid, { displayName: trimmed });
 }
 
 // Spark plan has no server-side Admin SDK, so we can't delete another user's

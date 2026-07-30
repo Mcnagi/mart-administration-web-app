@@ -25,12 +25,20 @@ service cloud.firestore {
     }
 
     // Users can read their own profile (needed at login to check
-    // disabled/role); admins can read and manage everyone's.
+    // disabled/role); admins can read and manage everyone's. A signed-in
+    // user may also update their own displayName only — not role, disabled,
+    // or email — via userService.updateOwnDisplayName.
     match /users/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create: if isAdmin();
-      allow update: if isAdmin();
+      allow update: if isAdmin() || (
+        request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName']) &&
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() > 0 &&
+        request.resource.data.displayName.size() <= 60
+      );
       allow delete: if isAdmin();
     }
 

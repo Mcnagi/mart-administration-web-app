@@ -29,9 +29,26 @@ export function logout() {
   return authApi.signOutCurrentUser();
 }
 
-export function changePassword(newPassword) {
+// Re-fetches the current user's profile so a self-service edit (e.g. display
+// name) shows up immediately without waiting for the next auth-state event.
+export function fetchProfile(uid) {
+  return usersApi.getUserProfile(uid);
+}
+
+// Firebase requires a "recent" login for sensitive operations like changing
+// your own password, so the current password is used to reauthenticate
+// immediately beforehand — otherwise this fails with auth/requires-recent-login.
+export async function changePassword(currentPassword, newPassword) {
+  if (!currentPassword) {
+    throw new Error('Current password is required.');
+  }
   if (!newPassword || newPassword.length < 6) {
-    throw new Error('Password must be at least 6 characters.');
+    throw new Error('New password must be at least 6 characters.');
+  }
+  try {
+    await authApi.reauthenticate(currentPassword);
+  } catch {
+    throw new Error('Current password is incorrect.');
   }
   return authApi.changeOwnPassword(newPassword);
 }

@@ -6,6 +6,8 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from 'firebase/auth';
 import { auth, getSecondaryAuth } from './firebaseClient';
 
@@ -29,6 +31,14 @@ export async function createUserOnSecondaryApp(email, password) {
   const uid = credential.user.uid;
   await signOut(secondaryAuth);
   return uid;
+}
+
+// Firebase rejects updatePassword with auth/requires-recent-login unless the
+// session was established recently, so callers must reauthenticate first.
+export function reauthenticate(currentPassword) {
+  if (!auth.currentUser) throw new Error('Not signed in');
+  const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+  return reauthenticateWithCredential(auth.currentUser, credential);
 }
 
 export function changeOwnPassword(newPassword) {
