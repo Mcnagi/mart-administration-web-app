@@ -79,6 +79,7 @@ management (creating/disabling/promoting/deleting users) is admin-only.
      document whose ID is that UID, containing:
      ```
      email: "you@example.com"   (string)
+     displayName: "you"         (string — shown in the nav bar; editable later from Account)
      role: "admin"              (string)
      disabled: false            (boolean)
      ```

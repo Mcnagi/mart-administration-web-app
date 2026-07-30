@@ -74,6 +74,7 @@ h1, h2 {
 
 .app-main {
   flex: 1;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
 }
 
 .loading-spinner {
@@ -98,62 +99,209 @@ h1, h2 {
 
 /* ---------- Nav ---------- */
 
-.navbar {
+.top-bar {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.navbar-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  .top-bar {
+    background: rgba(23, 21, 29, 0.55);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 .navbar-brand {
   font-weight: 700;
-  font-size: 20px;
+  font-size: 16px;
   color: var(--text-h);
 }
 
-.navbar-links {
-  display: flex;
-  gap: 4px;
-  padding: 0 8px 8px;
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
-.navbar-links a {
-  flex: 1;
-  text-align: center;
-  padding: 8px 4px;
-  border-radius: 8px;
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-btn:hover {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent);
+}
+
+/* Frosted, translucent pill that floats over page content, with a soft top
+   highlight to read as a glass surface rather than a flat panel. Sized to
+   fit its items and centered independently of the separate Add FAB. */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  padding: 4px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.4));
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 10px 30px rgba(16, 14, 23, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    background: linear-gradient(180deg, rgba(40, 38, 48, 0.7), rgba(26, 24, 33, 0.55));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Add button: a solid, elevated FAB set apart from the glass bar so it
+   reads as the primary action, not just another tab. Pinned to the
+   bottom-right corner independently of the centered tab bar. */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  text-decoration: none;
+  box-shadow:
+    0 8px 20px rgba(124, 58, 237, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.fab svg {
+  width: 21px;
+  height: 21px;
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+.fab.active {
+  box-shadow:
+    0 8px 20px rgba(124, 58, 237, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.bottom-nav-item {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 12px;
+  border-radius: 16px;
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 9.5px;
+  font-weight: 600;
   white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.92);
+}
+
+.bottom-nav-item span {
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.navbar-links a.active {
-  background: var(--accent);
-  color: var(--accent-contrast);
+@media (max-width: 360px) {
+  .bottom-nav-item span {
+    max-width: 64px;
+  }
+}
+
+.bottom-nav-item svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.15s ease;
+}
+
+.bottom-nav-item.active {
+  color: var(--accent);
+  background: rgba(124, 58, 237, 0.16);
+}
+
+/* Small "pop" on the icon and a soft rise-in on the label whenever a tab
+   becomes the active one — gives switching tabs a bit of life without any
+   JS or layout measurement. */
+@keyframes tab-icon-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@keyframes tab-label-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bottom-nav-item.active svg {
+  animation: tab-icon-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.bottom-nav-item.active span {
+  animation: tab-label-in 0.22s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-item.active svg,
+  .bottom-nav-item.active span {
+    animation: none;
+  }
 }
 
 @media (min-width: 640px) {
-  .navbar-top {
-    padding: 16px 24px;
+  .top-bar {
+    padding: 10px 24px;
   }
-  .navbar-links {
-    padding: 0 24px 12px;
-    justify-content: flex-start;
-  }
-  .navbar-links a {
-    flex: initial;
-    padding: 8px 16px;
+  .bottom-nav-item {
+    font-size: 11px;
   }
 }
 
@@ -269,6 +417,12 @@ h1, h2 {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.item-form + .item-form {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
 }
 
 .item-form label, .auth-form label {
