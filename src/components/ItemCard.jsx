@@ -17,12 +17,14 @@ export default function ItemCard({ item, selectable = false, selected = false, o
       </div>
       <div className="item-card-body">
         <div className="item-card-name">{item.name}</div>
-        {item.quantity !== '' && item.quantity !== undefined && (
-          <div className="item-card-qty">Qty: {item.quantity}</div>
-        )}
-        <div className="item-card-badges">
-          <ExpiryBadge expiryDate={item.expiryDate} />
-          {item.branch && <span className="badge badge-none">{item.branch}</span>}
+        <div className="item-card-bottom">
+          {item.quantity !== '' && item.quantity !== undefined && (
+            <div className="item-card-qty">Qty: {item.quantity}</div>
+          )}
+          <div className="item-card-badges">
+            <ExpiryBadge expiryDate={item.expiryDate} />
+            {item.branch && <span className="badge badge-none">{item.branch}</span>}
+          </div>
         </div>
       </div>
     </>

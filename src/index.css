@@ -653,6 +653,7 @@ select:focus {
 }
 
 .item-card-body {
+  flex: 1;
   padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
@@ -665,6 +666,13 @@ select:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.item-card-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .item-card-qty {
