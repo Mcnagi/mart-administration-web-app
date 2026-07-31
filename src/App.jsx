@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SelectionProvider } from './context/SelectionContext';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
 import NavBar from './components/NavBar';
 import LoginPage from './pages/LoginPage';
@@ -14,21 +15,23 @@ function AppLayout() {
   if (loading) return <LoadingSpinner />;
   return (
     <div className="app-shell">
-      <NavBar />
-      <main className="app-main">
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<ItemsPage />} />
-            <Route path="/add" element={<ItemFormPage />} />
-            <Route path="/edit/:itemId" element={<ItemFormPage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminUsersPage />} />
+      <SelectionProvider>
+        <NavBar />
+        <main className="app-main">
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<ItemsPage />} />
+              <Route path="/add" element={<ItemFormPage />} />
+              <Route path="/edit/:itemId" element={<ItemFormPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminUsersPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </SelectionProvider>
     </div>
   );
 }

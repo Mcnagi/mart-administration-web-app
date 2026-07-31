@@ -18,6 +18,7 @@
   --none-bg: #f0f0f2;
   --none-text: #6b6875;
   --shadow: rgba(16, 14, 23, 0.08) 0 2px 8px;
+  --topbar-h: 56px;
 
   color-scheme: light dark;
   font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -106,17 +107,17 @@ h1, h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: var(--topbar-h);
+  box-sizing: border-box;
   padding: 8px 14px;
   background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
   .top-bar {
     background: rgba(23, 21, 29, 0.55);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -124,6 +125,12 @@ h1, h2 {
   font-weight: 700;
   font-size: 16px;
   color: var(--text-h);
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .icon-btn {
@@ -313,13 +320,6 @@ h1, h2 {
   padding: 16px;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
 .page-error {
   color: var(--danger);
 }
@@ -405,14 +405,22 @@ h1, h2 {
 /* ---------- Bulk select bar (admin multi-select on Items) ---------- */
 
 .bulk-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  width: calc(100% - 32px);
+  max-width: 688px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 12px;
-  margin-bottom: 16px;
+  box-shadow: var(--shadow);
 }
 
 .bulk-count {

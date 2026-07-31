@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useSelection } from '../context/SelectionContext';
 import { fetchSortedItems, applyDiscount, removeItems } from '../services/itemService';
 import ItemCard from '../components/ItemCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -11,10 +11,9 @@ import LoadingSpinner from '../components/LoadingSpinner';
 let itemsCache = null;
 
 export default function ItemsPage() {
-  const { isAdmin } = useAuth();
+  const { selecting: selectMode, setSelecting: setSelectMode } = useSelection();
   const [items, setItems] = useState(itemsCache);
   const [error, setError] = useState('');
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [customPercent, setCustomPercent] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -43,11 +42,18 @@ export default function ItemsPage() {
     };
   }, []);
 
-  function toggleSelectMode() {
-    setSelectMode((s) => !s);
+  // Selection state is shared with NavBar (which owns the Select/Cancel
+  // toggle and hides the bottom nav while selecting) via context, which
+  // outlives this page — clear it if the page unmounts while still
+  // selecting so the nav doesn't stay hidden elsewhere.
+  useEffect(() => () => setSelectMode(false), [setSelectMode]);
+
+  // Reset any in-progress selection whenever select mode is toggled, in
+  // either direction, since NavBar owns the toggle button itself.
+  useEffect(() => {
     setSelectedIds(new Set());
     setBulkError('');
-  }
+  }, [selectMode]);
 
   function toggleSelected(id) {
     setSelectedIds((prev) => {
@@ -84,36 +90,27 @@ export default function ItemsPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h2>Items</h2>
-        {isAdmin && (
-          <button className="btn-link" onClick={toggleSelectMode}>
-            {selectMode ? 'Cancel' : 'Select'}
-          </button>
-        )}
-      </div>
-
-      {selectMode && (
+      {selectMode && selectedIds.size > 0 && (
         <div className="bulk-bar">
           <span className="bulk-count">{selectedIds.size} selected</span>
           <div className="bulk-actions">
             <button
               className="btn-outline"
-              disabled={!selectedIds.size || bulkBusy}
+              disabled={bulkBusy}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 50))}
             >
               50%
             </button>
             <button
               className="btn-outline"
-              disabled={!selectedIds.size || bulkBusy}
+              disabled={bulkBusy}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 30))}
             >
               30%
             </button>
             <button
               className="btn-outline"
-              disabled={!selectedIds.size || bulkBusy}
+              disabled={bulkBusy}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 0))}
             >
               0%
@@ -130,19 +127,19 @@ export default function ItemsPage() {
             />
             <button
               className="btn-outline"
-              disabled={!selectedIds.size || bulkBusy || customPercent === ''}
+              disabled={bulkBusy || customPercent === ''}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), customPercent))}
             >
               Apply
             </button>
             <button
               className="btn-outline"
-              disabled={!selectedIds.size || bulkBusy}
+              disabled={bulkBusy}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), null))}
             >
               None
             </button>
-            <button className="btn-outline btn-outline-danger" disabled={!selectedIds.size || bulkBusy} onClick={handleBulkDelete}>
+            <button className="btn-outline btn-outline-danger" disabled={bulkBusy} onClick={handleBulkDelete}>
               Delete
             </button>
           </div>
