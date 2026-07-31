@@ -90,7 +90,7 @@ export default function ItemFormPage() {
       <form className="item-form" onSubmit={handleSubmit}>
         <label>
           Photo
-          <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} />
+          <input type="file" accept="image/*" onChange={handlePhotoChange} />
         </label>
         {previewUrl && (
           <div className="photo-preview">
