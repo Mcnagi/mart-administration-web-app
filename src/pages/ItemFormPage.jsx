@@ -4,16 +4,18 @@ import { useAuth } from '../context/AuthContext';
 import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { BRANCHES } from '../appConfig';
 
 export default function ItemFormPage() {
   const { itemId } = useParams();
   const isEditing = !!itemId;
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [branch, setBranch] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -22,7 +24,11 @@ export default function ItemFormPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isEditing) return;
+    if (!isEditing) {
+      // New items default to the current user's own branch, if they have one.
+      setBranch(profile?.branch || '');
+      return;
+    }
     let cancelled = false;
     itemsApi
       .listItems()
@@ -36,6 +42,7 @@ export default function ItemFormPage() {
         setName(item.name || '');
         setQuantity(item.quantity ?? '');
         setExpiryDate(item.expiryDate || '');
+        setBranch(item.branch || '');
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
       })
@@ -44,6 +51,9 @@ export default function ItemFormPage() {
     return () => {
       cancelled = true;
     };
+    // profile is only read for its initial value (defaulting a new item's
+    // branch) — deliberately excluded so later profile refreshes don't
+    // clobber a branch the user has already picked in this form.
   }, [itemId, isEditing]);
 
   function handlePhotoChange(e) {
@@ -59,7 +69,7 @@ export default function ItemFormPage() {
     setSaving(true);
     try {
       await saveItem(
-        { id: itemId, name, quantity, expiryDate, photoFile, existingPhotoBase64 },
+        { id: itemId, name, quantity, expiryDate, branch, photoFile, existingPhotoBase64 },
         user.uid
       );
       navigate('/');
@@ -116,6 +126,19 @@ export default function ItemFormPage() {
           Expiry date
           <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
         </label>
+        {BRANCHES.length > 0 && (
+          <label>
+            Branch
+            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <option value="">No branch</option>
+              {BRANCHES.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {error && <div className="form-error">{error}</div>}
         <div className="form-actions">
           <button type="submit" className="btn-primary" disabled={saving}>

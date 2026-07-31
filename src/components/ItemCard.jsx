@@ -18,7 +18,10 @@ export default function ItemCard({ item, selectable = false, selected = false, o
         {item.quantity !== '' && item.quantity !== undefined && (
           <div className="item-card-qty">Qty: {item.quantity}</div>
         )}
-        <ExpiryBadge expiryDate={item.expiryDate} />
+        <div className="item-card-badges">
+          <ExpiryBadge expiryDate={item.expiryDate} />
+          {item.branch && <span className="badge badge-none">{item.branch}</span>}
+        </div>
       </div>
     </>
   );

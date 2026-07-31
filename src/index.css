@@ -664,6 +664,12 @@ select:focus {
   color: var(--text-muted);
 }
 
+.item-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* ---------- Badges ---------- */
 
 .badge {

@@ -41,7 +41,10 @@ export async function fetchSortedItems() {
 }
 
 // `input` may include a raw File under `photoFile`; every field is optional.
-export async function saveItem({ id, name, quantity, expiryDate, photoFile, existingPhotoBase64 }, ownerId) {
+export async function saveItem(
+  { id, name, quantity, expiryDate, branch, photoFile, existingPhotoBase64 },
+  ownerId
+) {
   let photoBase64 = existingPhotoBase64 ?? '';
   if (photoFile) {
     if (!isImageFile(photoFile)) {
@@ -54,6 +57,7 @@ export async function saveItem({ id, name, quantity, expiryDate, photoFile, exis
     name: (name ?? '').trim(),
     quantity: quantity === '' || quantity === undefined || quantity === null ? '' : Number(quantity),
     expiryDate: expiryDate ?? '',
+    branch: branch ?? '',
     photoBase64,
   };
 
