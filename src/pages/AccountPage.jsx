@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { changePassword } from '../services/authService';
-import { updateOwnDisplayName, defaultDisplayNameFromEmail } from '../services/userService';
+import { updateOwnDisplayName, updateOwnBranch, defaultDisplayNameFromEmail } from '../services/userService';
+import { BRANCHES } from '../appConfig';
 
 export default function AccountPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -11,6 +12,11 @@ export default function AccountPage() {
   const [nameError, setNameError] = useState('');
   const [savingName, setSavingName] = useState(false);
 
+  const [branch, setBranch] = useState('');
+  const [branchMessage, setBranchMessage] = useState('');
+  const [branchError, setBranchError] = useState('');
+  const [savingBranch, setSavingBranch] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -19,6 +25,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     setDisplayName(profile?.displayName || defaultDisplayNameFromEmail(profile?.email));
+    setBranch(profile?.branch || '');
   }, [profile]);
 
   async function handleNameSubmit(e) {
@@ -34,6 +41,22 @@ export default function AccountPage() {
       setNameError(err.message || 'Failed to update display name.');
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function handleBranchSubmit(e) {
+    e.preventDefault();
+    setBranchError('');
+    setBranchMessage('');
+    setSavingBranch(true);
+    try {
+      await updateOwnBranch(user.uid, branch);
+      await refreshProfile();
+      setBranchMessage('Branch updated.');
+    } catch (err) {
+      setBranchError(err.message || 'Failed to update branch.');
+    } finally {
+      setSavingBranch(false);
     }
   }
 
@@ -78,6 +101,29 @@ export default function AccountPage() {
           {savingName ? 'Saving…' : 'Save display name'}
         </button>
       </form>
+
+      {BRANCHES.length > 0 && (
+        <form className="item-form" onSubmit={handleBranchSubmit}>
+          <label>
+            Branch
+            <select value={branch} onChange={(e) => setBranch(e.target.value)} required>
+              <option value="" disabled>
+                Select a branch
+              </option>
+              {BRANCHES.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
+          {branchMessage && <div className="form-success">{branchMessage}</div>}
+          {branchError && <div className="form-error">{branchError}</div>}
+          <button type="submit" className="btn-primary" disabled={savingBranch}>
+            {savingBranch ? 'Saving…' : 'Save branch'}
+          </button>
+        </form>
+      )}
 
       <form className="item-form" onSubmit={handlePasswordSubmit}>
         <label>

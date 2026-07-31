@@ -496,7 +496,8 @@ input[type="email"],
 input[type="password"],
 input[type="number"],
 input[type="date"],
-input[type="file"] {
+input[type="file"],
+select {
   font: inherit;
   padding: 12px;
   border: 1px solid var(--border);
@@ -505,7 +506,8 @@ input[type="file"] {
   color: var(--text-h);
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

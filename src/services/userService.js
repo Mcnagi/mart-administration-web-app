@@ -3,7 +3,7 @@
 // this file, never api/usersApi.js or api/authApi.js directly.
 import * as authApi from '../api/authApi';
 import * as usersApi from '../api/usersApi';
-import { TEMP_PASSWORD } from '../appConfig';
+import { TEMP_PASSWORD, BRANCHES } from '../appConfig';
 
 export function listUsers() {
   return usersApi.listUserProfiles();
@@ -50,6 +50,14 @@ export function updateOwnDisplayName(uid, displayName) {
   if (!trimmed) throw new Error('Display name cannot be empty.');
   if (trimmed.length > 60) throw new Error('Display name is too long.');
   return usersApi.updateUserProfile(uid, { displayName: trimmed });
+}
+
+// Self-service: a user picking their own branch from the VITE_BRANCHES list.
+// Firestore rules restrict this to only the branch field, so it can't be
+// used to smuggle in a role/disabled change.
+export function updateOwnBranch(uid, branch) {
+  if (!BRANCHES.includes(branch)) throw new Error('Select a valid branch.');
+  return usersApi.updateUserProfile(uid, { branch });
 }
 
 // Spark plan has no server-side Admin SDK, so we can't delete another user's

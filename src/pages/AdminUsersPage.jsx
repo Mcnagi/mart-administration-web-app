@@ -110,6 +110,7 @@ export default function AdminUsersPage() {
               <span className={`badge ${u.role === 'admin' ? 'badge-ok' : 'badge-none'}`}>
                 {u.role === 'admin' ? 'Admin' : 'User'}
               </span>
+              {u.branch && <span className="badge badge-none">{u.branch}</span>}
               {u.disabled && <span className="badge badge-expired">Disabled</span>}
             </div>
             <div className="user-row-actions">

@@ -26,18 +26,28 @@ service cloud.firestore {
 
     // Users can read their own profile (needed at login to check
     // disabled/role); admins can read and manage everyone's. A signed-in
-    // user may also update their own displayName only — not role, disabled,
-    // or email — via userService.updateOwnDisplayName.
+    // user may also update their own displayName and/or branch only — not
+    // role, disabled, or email — via userService.updateOwnDisplayName /
+    // updateOwnBranch. The list of valid branches is env-configured
+    // (VITE_BRANCHES) client-side only; rules just check it's a non-empty
+    // string, since Firestore rules can't see client env vars.
     match /users/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
       allow create: if isAdmin();
       allow update: if isAdmin() || (
         request.auth.uid == uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName']) &&
-        request.resource.data.displayName is string &&
-        request.resource.data.displayName.size() > 0 &&
-        request.resource.data.displayName.size() <= 60
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'branch']) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['displayName']) || (
+          request.resource.data.displayName is string &&
+          request.resource.data.displayName.size() > 0 &&
+          request.resource.data.displayName.size() <= 60
+        )) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['branch']) || (
+          request.resource.data.branch is string &&
+          request.resource.data.branch.size() > 0 &&
+          request.resource.data.branch.size() <= 60
+        ))
       );
       allow delete: if isAdmin();
     }

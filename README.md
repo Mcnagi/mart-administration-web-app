@@ -60,7 +60,10 @@ management (creating/disabling/promoting/deleting users) is admin-only.
 4. **Project settings** → General → Your apps → Add app → Web. Copy the
    config values into a `.env` file (copy `.env.example` and fill it in —
    `.env` is gitignored so real credentials never get committed). Optionally
-   set `VITE_APP_NAME` there too (defaults to `MartAdmin`).
+   set `VITE_APP_NAME` there too (defaults to `MartAdmin`). Set
+   `VITE_BRANCHES` to a comma-separated list (e.g.
+   `Downtown,Uptown,Warehouse`) to let staff pick a branch from Account —
+   leave it blank to hide the branch field entirely.
 5. Copy `.firebaserc.example` to `.firebaserc` and set your project ID (also
    gitignored), or run `firebase use --add` to generate it.
 6. Deploy the security rules in `firestore.rules`:
@@ -83,6 +86,8 @@ management (creating/disabling/promoting/deleting users) is admin-only.
      role: "admin"              (string)
      disabled: false            (boolean)
      ```
+     A `branch` field (string) is added once you save it from Account — it
+     isn't required at bootstrap time.
    - You can now log in to the app with that email/password as an admin, and
      create every other account from Admin → Manage users.
 
