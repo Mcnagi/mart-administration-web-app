@@ -14,7 +14,7 @@ export default function ItemCard({ item, selectable = false, selected = false, o
         {selectable && <span className={`select-check${selected ? ' checked' : ''}`} aria-hidden="true" />}
       </div>
       <div className="item-card-body">
-        <div className="item-card-name">{item.name || 'Untitled item'}</div>
+        <div className="item-card-name">{item.name}</div>
         {item.quantity !== '' && item.quantity !== undefined && (
           <div className="item-card-qty">Qty: {item.quantity}</div>
         )}
