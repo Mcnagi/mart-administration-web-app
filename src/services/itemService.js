@@ -68,3 +68,22 @@ export async function saveItem({ id, name, quantity, expiryDate, photoFile, exis
 export function removeItem(itemId) {
   return itemsApi.deleteItem(itemId);
 }
+
+// Bulk actions for the admin multi-select tool on the items list.
+// `percent` of null/'' clears the discount ("None"); otherwise must be 0-100.
+export function applyDiscount(itemIds, percent) {
+  if (!itemIds || itemIds.length === 0) return Promise.resolve();
+  let value = null;
+  if (percent !== null && percent !== undefined && percent !== '') {
+    value = Number(percent);
+    if (Number.isNaN(value) || value < 0 || value > 100) {
+      throw new Error('Discount must be a number between 0 and 100.');
+    }
+  }
+  return itemsApi.batchUpdateItems(itemIds, { discountPercent: value });
+}
+
+export function removeItems(itemIds) {
+  if (!itemIds || itemIds.length === 0) return Promise.resolve();
+  return itemsApi.batchDeleteItems(itemIds);
+}

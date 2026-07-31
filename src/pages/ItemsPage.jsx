@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { fetchSortedItems } from '../services/itemService';
+import { useAuth } from '../context/AuthContext';
+import { fetchSortedItems, applyDiscount, removeItems } from '../services/itemService';
 import ItemCard from '../components/ItemCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function ItemsPage() {
+  const { isAdmin } = useAuth();
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [customPercent, setCustomPercent] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+
+  async function loadItems() {
+    const data = await fetchSortedItems();
+    setItems(data);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -22,6 +33,42 @@ export default function ItemsPage() {
     };
   }, []);
 
+  function toggleSelectMode() {
+    setSelectMode((s) => !s);
+    setSelectedIds(new Set());
+    setBulkError('');
+  }
+
+  function toggleSelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runBulk(action) {
+    if (selectedIds.size === 0) return;
+    setBulkError('');
+    setBulkBusy(true);
+    try {
+      await action();
+      await loadItems();
+      setSelectedIds(new Set());
+      setCustomPercent('');
+    } catch (err) {
+      setBulkError(err.message || 'Bulk action failed.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function handleBulkDelete() {
+    if (!confirm(`Delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    runBulk(() => removeItems(Array.from(selectedIds)));
+  }
+
   if (error) return <div className="page page-error">{error}</div>;
   if (items === null) return <LoadingSpinner />;
 
@@ -29,16 +76,75 @@ export default function ItemsPage() {
     <div className="page">
       <div className="page-header">
         <h2>Items</h2>
-        <Link to="/add" className="btn-primary btn-small">
-          + Add item
-        </Link>
+        {isAdmin && (
+          <button className="btn-link" onClick={toggleSelectMode}>
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+        )}
       </div>
+
+      {selectMode && (
+        <div className="bulk-bar">
+          <span className="bulk-count">{selectedIds.size} selected</span>
+          <div className="bulk-actions">
+            <button
+              className="btn-outline"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 50))}
+            >
+              50%
+            </button>
+            <button
+              className="btn-outline"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 30))}
+            >
+              30%
+            </button>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="%"
+              className="bulk-percent-input"
+              value={customPercent}
+              onChange={(e) => setCustomPercent(e.target.value)}
+              aria-label="Custom discount percentage"
+            />
+            <button
+              className="btn-outline"
+              disabled={!selectedIds.size || bulkBusy || customPercent === ''}
+              onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), customPercent))}
+            >
+              Apply
+            </button>
+            <button
+              className="btn-outline"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), null))}
+            >
+              None
+            </button>
+            <button className="btn-outline btn-outline-danger" disabled={!selectedIds.size || bulkBusy} onClick={handleBulkDelete}>
+              Delete
+            </button>
+          </div>
+          {bulkError && <div className="form-error">{bulkError}</div>}
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="empty-state">No items yet. Add your first one.</p>
       ) : (
         <div className="item-grid">
           {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
+            <ItemCard
+              key={item.id}
+              item={item}
+              selectable={selectMode}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={() => toggleSelected(item.id)}
+            />
           ))}
         </div>
       )}

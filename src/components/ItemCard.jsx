@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
 import ExpiryBadge from './ExpiryBadge';
 
-export default function ItemCard({ item }) {
-  return (
-    <Link to={`/edit/${item.id}`} className="item-card">
+export default function ItemCard({ item, selectable = false, selected = false, onToggleSelect }) {
+  const content = (
+    <>
       <div className="item-card-photo">
         {item.photoBase64 ? (
           <img src={item.photoBase64} alt={item.name || 'Item photo'} />
         ) : (
           <div className="item-card-photo-placeholder">No photo</div>
         )}
+        {!!item.discountPercent && <span className="discount-badge">-{item.discountPercent}%</span>}
+        {selectable && <span className={`select-check${selected ? ' checked' : ''}`} aria-hidden="true" />}
       </div>
       <div className="item-card-body">
         <div className="item-card-name">{item.name || 'Untitled item'}</div>
@@ -18,6 +20,25 @@ export default function ItemCard({ item }) {
         )}
         <ExpiryBadge expiryDate={item.expiryDate} />
       </div>
+    </>
+  );
+
+  if (selectable) {
+    return (
+      <button
+        type="button"
+        className={`item-card item-card-selectable${selected ? ' selected' : ''}`}
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link to={`/edit/${item.id}`} className="item-card">
+      {content}
     </Link>
   );
 }
