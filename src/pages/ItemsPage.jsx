@@ -4,9 +4,15 @@ import { fetchSortedItems, applyDiscount, removeItems } from '../services/itemSe
 import ItemCard from '../components/ItemCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+// Kept outside component state so re-mounting the page (e.g. switching tabs
+// and coming back) can paint the previous list immediately instead of
+// dropping to a loading spinner, which collapses the page and loses scroll
+// position.
+let itemsCache = null;
+
 export default function ItemsPage() {
   const { isAdmin } = useAuth();
-  const [items, setItems] = useState(null);
+  const [items, setItems] = useState(itemsCache);
   const [error, setError] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -16,6 +22,7 @@ export default function ItemsPage() {
 
   async function loadItems() {
     const data = await fetchSortedItems();
+    itemsCache = data;
     setItems(data);
   }
 
@@ -23,7 +30,10 @@ export default function ItemsPage() {
     let cancelled = false;
     fetchSortedItems()
       .then((data) => {
-        if (!cancelled) setItems(data);
+        if (!cancelled) {
+          itemsCache = data;
+          setItems(data);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || 'Failed to load items.');
