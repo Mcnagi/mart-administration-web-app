@@ -10,7 +10,9 @@ export default function ItemCard({ item, selectable = false, selected = false, o
         ) : (
           <div className="item-card-photo-placeholder">No photo</div>
         )}
-        {!!item.discountPercent && <span className="discount-badge">-{item.discountPercent}%</span>}
+        {item.discountPercent !== null && item.discountPercent !== undefined && (
+          <span className="discount-badge">{item.discountPercent}% off</span>
+        )}
         {selectable && <span className={`select-check${selected ? ' checked' : ''}`} aria-hidden="true" />}
       </div>
       <div className="item-card-body">

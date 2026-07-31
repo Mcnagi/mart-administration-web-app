@@ -111,6 +111,13 @@ export default function ItemsPage() {
             >
               30%
             </button>
+            <button
+              className="btn-outline"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 0))}
+            >
+              0%
+            </button>
             <input
               type="number"
               min="0"
