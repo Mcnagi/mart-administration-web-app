@@ -4,6 +4,7 @@
 import * as authApi from '../api/authApi';
 import * as usersApi from '../api/usersApi';
 import { TEMP_PASSWORD, BRANCHES } from '../appConfig';
+import { t } from '../i18n/i18n';
 
 export function listUsers() {
   return usersApi.listUserProfiles();
@@ -29,7 +30,7 @@ function randomTempPassword() {
 // unaffected. Returns the temporary password so the admin can share it.
 export async function createUser(email, { role = 'user' } = {}) {
   const trimmedEmail = email.trim().toLowerCase();
-  if (!trimmedEmail) throw new Error('Email is required.');
+  if (!trimmedEmail) throw new Error(t('errors.emailRequired'));
 
   const tempPassword = randomTempPassword();
   const uid = await authApi.createUserOnSecondaryApp(trimmedEmail, tempPassword);
@@ -47,8 +48,8 @@ export async function createUser(email, { role = 'user' } = {}) {
 // smuggle in a role/disabled change.
 export function updateOwnDisplayName(uid, displayName) {
   const trimmed = (displayName ?? '').trim();
-  if (!trimmed) throw new Error('Display name cannot be empty.');
-  if (trimmed.length > 60) throw new Error('Display name is too long.');
+  if (!trimmed) throw new Error(t('errors.displayNameEmpty'));
+  if (trimmed.length > 60) throw new Error(t('errors.displayNameTooLong'));
   return usersApi.updateUserProfile(uid, { displayName: trimmed });
 }
 
@@ -56,7 +57,7 @@ export function updateOwnDisplayName(uid, displayName) {
 // Firestore rules restrict this to only the branch field, so it can't be
 // used to smuggle in a role/disabled change.
 export function updateOwnBranch(uid, branch) {
-  if (!BRANCHES.includes(branch)) throw new Error('Select a valid branch.');
+  if (!BRANCHES.includes(branch)) throw new Error(t('errors.selectValidBranch'));
   return usersApi.updateUserProfile(uid, { branch });
 }
 
@@ -76,7 +77,7 @@ export async function setAdminRole(uid, isAdmin, allUsers) {
   if (!isAdmin) {
     const remainingAdmins = allUsers.filter((u) => u.role === 'admin' && u.uid !== uid);
     if (remainingAdmins.length === 0) {
-      throw new Error('Cannot remove the last admin.');
+      throw new Error(t('errors.cannotRemoveLastAdmin'));
     }
   }
   return usersApi.updateUserProfile(uid, { role: isAdmin ? 'admin' : 'user' });

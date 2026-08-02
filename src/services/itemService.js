@@ -3,6 +3,7 @@
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
+import { t } from '../i18n/i18n';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -28,21 +29,21 @@ export function expiryBucket(expiryDate) {
 }
 
 // Fixed display order for the expiry groups used to both filter and section
-// the items list.
+// the items list. Labels are looked up at render time via
+// t(`expiryGroups.${key}`) so they follow the active language.
 export const EXPIRY_GROUPS = [
-  { key: 'expired', label: 'Expired' },
-  { key: 'week', label: 'Less than a week' },
-  { key: 'month', label: 'Less than a month' },
-  { key: 'longer', label: 'Longer' },
-  { key: 'none', label: 'No expiry date' },
+  { key: 'expired' },
+  { key: 'week' },
+  { key: 'month' },
+  { key: 'longer' },
+  { key: 'none' },
 ];
 
 // Buckets items by expiryBucket() into EXPIRY_GROUPS order, dropping any
 // group that ends up empty.
 export function groupItemsByExpiry(items) {
-  return EXPIRY_GROUPS.map(({ key, label }) => ({
+  return EXPIRY_GROUPS.map(({ key }) => ({
     key,
-    label,
     items: items.filter((item) => expiryBucket(item.expiryDate) === key),
   })).filter((group) => group.items.length > 0);
 }
@@ -71,7 +72,7 @@ export async function saveItem(
   let photoBase64 = existingPhotoBase64 ?? '';
   if (photoFile) {
     if (!isImageFile(photoFile)) {
-      throw new Error('Selected file is not an image.');
+      throw new Error(t('errors.notAnImage'));
     }
     photoBase64 = await fileToCompressedBase64(photoFile);
   }
@@ -106,7 +107,7 @@ export function applyDiscount(itemIds, percent) {
   if (percent !== null && percent !== undefined && percent !== '') {
     value = Number(percent);
     if (Number.isNaN(value) || value < 0 || value > 100) {
-      throw new Error('Discount must be a number between 0 and 100.');
+      throw new Error(t('errors.discountRange'));
     }
   }
   return itemsApi.batchUpdateItems(itemIds, { discountPercent: value });

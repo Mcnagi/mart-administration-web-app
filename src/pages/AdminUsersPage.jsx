@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../context/LanguageContext';
 import * as userService from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminUsersPage() {
   const { profile: currentProfile } = useAuth();
+  const { t } = useTranslation();
   const [users, setUsers] = useState(null);
   const [error, setError] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -18,7 +20,7 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    refresh().catch((err) => setError(err.message || 'Failed to load users.'));
+    refresh().catch((err) => setError(err.message || t('admin.errorLoadUsers')));
   }, []);
 
   async function handleCreate(e) {
@@ -32,7 +34,7 @@ export default function AdminUsersPage() {
       setNewEmail('');
       await refresh();
     } catch (err) {
-      setError(err.message || 'Failed to create user.');
+      setError(err.message || t('admin.errorCreateUser'));
     } finally {
       setCreating(false);
     }
@@ -44,7 +46,7 @@ export default function AdminUsersPage() {
       await userService.setAdminRole(u.uid, u.role !== 'admin', users);
       await refresh();
     } catch (err) {
-      setError(err.message || 'Failed to update admin role.');
+      setError(err.message || t('admin.errorUpdateAdminRole'));
     }
   }
 
@@ -54,18 +56,18 @@ export default function AdminUsersPage() {
       await userService.setDisabled(u.uid, !u.disabled);
       await refresh();
     } catch (err) {
-      setError(err.message || 'Failed to update user.');
+      setError(err.message || t('admin.errorUpdateUser'));
     }
   }
 
   async function handleRevoke(u) {
-    if (!confirm(`Remove ${u.email}'s access? This cannot be undone from here.`)) return;
+    if (!confirm(t('admin.confirmRevoke', { email: u.email }))) return;
     setError('');
     try {
       await userService.revokeUser(u.uid);
       await refresh();
     } catch (err) {
-      setError(err.message || 'Failed to remove user.');
+      setError(err.message || t('admin.errorRemoveUser'));
     }
   }
 
@@ -73,11 +75,11 @@ export default function AdminUsersPage() {
 
   return (
     <div className="page">
-      <h2>Manage users</h2>
+      <h2>{t('admin.title')}</h2>
 
       <form className="item-form" onSubmit={handleCreate}>
         <label>
-          New user email
+          {t('admin.newUserEmail')}
           <input
             type="email"
             value={newEmail}
@@ -86,17 +88,17 @@ export default function AdminUsersPage() {
           />
         </label>
         <button type="submit" className="btn-primary" disabled={creating}>
-          {creating ? 'Creating…' : 'Create account'}
+          {creating ? t('admin.creating') : t('admin.createAccount')}
         </button>
       </form>
 
       {createdCredential && (
         <div className="callout">
-          Account created for <strong>{createdCredential.email}</strong>.
+          {t('admin.accountCreatedFor')} <strong>{createdCredential.email}</strong>.
           <br />
-          Temporary password: <code>{createdCredential.tempPassword}</code>
+          {t('admin.tempPassword')} <code>{createdCredential.tempPassword}</code>
           <br />
-          Share this with them now — it will not be shown again. They should change it after logging in.
+          {t('admin.shareNote')}
         </div>
       )}
 
@@ -108,24 +110,24 @@ export default function AdminUsersPage() {
             <div className="user-row-info">
               <span className="user-email">{u.email}</span>
               <span className={`badge ${u.role === 'admin' ? 'badge-ok' : 'badge-none'}`}>
-                {u.role === 'admin' ? 'Admin' : 'User'}
+                {u.role === 'admin' ? t('admin.adminBadge') : t('admin.userBadge')}
               </span>
               {u.branch && <span className="badge badge-none">{u.branch}</span>}
-              {u.disabled && <span className="badge badge-expired">Disabled</span>}
+              {u.disabled && <span className="badge badge-expired">{t('admin.disabledBadge')}</span>}
             </div>
             <div className="user-row-actions">
               <button className="btn-link" onClick={() => handleToggleAdmin(u)}>
-                {u.role === 'admin' ? 'Demote' : 'Make admin'}
+                {u.role === 'admin' ? t('admin.demote') : t('admin.makeAdmin')}
               </button>
               <button className="btn-link" onClick={() => handleToggleDisabled(u)}>
-                {u.disabled ? 'Enable' : 'Disable'}
+                {u.disabled ? t('admin.enable') : t('admin.disable')}
               </button>
               <button
                 className="btn-link btn-link-danger"
                 onClick={() => handleRevoke(u)}
                 disabled={u.uid === currentProfile.uid}
               >
-                Delete
+                {t('admin.delete')}
               </button>
             </div>
           </li>

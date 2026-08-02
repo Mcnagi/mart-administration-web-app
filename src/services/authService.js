@@ -2,6 +2,7 @@
 // this file, never api/authApi.js or api/usersApi.js directly.
 import * as authApi from '../api/authApi';
 import * as usersApi from '../api/usersApi';
+import { t } from '../i18n/i18n';
 
 // There is no self-service sign-up in this app on purpose: accounts are only
 // ever created by an admin (see userService.createUser). This function is
@@ -19,7 +20,7 @@ export async function login(email, password) {
 
   if (!profile || profile.disabled) {
     await authApi.signOutCurrentUser();
-    throw new Error('Your access has been revoked. Contact an admin.');
+    throw new Error(t('errors.accessRevoked'));
   }
 
   return profile;
@@ -40,15 +41,15 @@ export function fetchProfile(uid) {
 // immediately beforehand — otherwise this fails with auth/requires-recent-login.
 export async function changePassword(currentPassword, newPassword) {
   if (!currentPassword) {
-    throw new Error('Current password is required.');
+    throw new Error(t('errors.currentPasswordRequired'));
   }
   if (!newPassword || newPassword.length < 6) {
-    throw new Error('New password must be at least 6 characters.');
+    throw new Error(t('errors.newPasswordTooShort'));
   }
   try {
     await authApi.reauthenticate(currentPassword);
   } catch {
-    throw new Error('Current password is incorrect.');
+    throw new Error(t('errors.currentPasswordIncorrect'));
   }
   return authApi.changeOwnPassword(newPassword);
 }

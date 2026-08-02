@@ -3,6 +3,8 @@
 // We resize + re-encode as JPEG on a canvas rather than storing the raw file,
 // since photos straight off a phone camera are far too large to fit.
 
+import { t } from '../i18n/i18n';
+
 const MAX_DIMENSION = 900; // px, longest side
 const JPEG_QUALITY = 0.7;
 // Firestore hard limit is 1,048,576 bytes per document; stay well under that
@@ -64,7 +66,7 @@ export async function fileToCompressedBase64(file) {
   }
 
   if (dataUrl.length > MAX_BASE64_BYTES) {
-    throw new Error('Photo is too large even after compression. Try a different photo.');
+    throw new Error(t('errors.photoTooLarge'));
   }
 
   return dataUrl;

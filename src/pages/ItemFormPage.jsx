@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../context/LanguageContext';
 import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -12,6 +13,7 @@ export default function ItemFormPage() {
   const isEditing = !!itemId;
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { t } = useTranslation();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -39,7 +41,7 @@ export default function ItemFormPage() {
         if (cancelled) return;
         const item = items.find((i) => i.id === itemId);
         if (!item) {
-          setError('Item not found.');
+          setError(t('itemForm.errorItemNotFound'));
           return;
         }
         setName(item.name || '');
@@ -51,7 +53,7 @@ export default function ItemFormPage() {
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
       })
-      .catch((err) => setError(err.message || 'Failed to load item.'))
+      .catch((err) => setError(err.message || t('itemForm.errorLoad')))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -79,20 +81,20 @@ export default function ItemFormPage() {
       );
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Failed to save item.');
+      setError(err.message || t('itemForm.errorSave'));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!confirm('Delete this item?')) return;
+    if (!confirm(t('itemForm.confirmDelete'))) return;
     setSaving(true);
     try {
       await removeItem(itemId);
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Failed to delete item.');
+      setError(err.message || t('itemForm.errorDelete'));
       setSaving(false);
     }
   }
@@ -102,63 +104,68 @@ export default function ItemFormPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <button type="button" className="icon-btn" onClick={() => navigate('/')} aria-label="Back">
+        <button type="button" className="icon-btn" onClick={() => navigate('/')} aria-label={t('itemForm.back')}>
           <BackIcon />
         </button>
-        <h2>{isEditing ? 'Edit item' : 'Add item'}</h2>
+        <h2>{isEditing ? t('itemForm.editTitle') : t('itemForm.addTitle')}</h2>
       </div>
       <form className="item-form" onSubmit={handleSubmit}>
         <label>
-          Photo
+          {t('itemForm.photo')}
           <input type="file" accept="image/*" onChange={handlePhotoChange} />
         </label>
         {previewUrl && (
           <div className="photo-preview">
-            <img src={previewUrl} alt="Preview" />
+            <img src={previewUrl} alt={t('itemForm.previewAlt')} />
           </div>
         )}
         <label>
-          Name
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Milk" />
+          {t('itemForm.name')}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('itemForm.namePlaceholder')}
+          />
         </label>
         <label>
-          Quantity
+          {t('itemForm.quantity')}
           <input
             type="number"
             min="0"
             step="any"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            placeholder="e.g. 2"
+            placeholder={t('itemForm.quantityPlaceholder')}
           />
         </label>
         <label>
-          Expiry date
+          {t('itemForm.expiryDate')}
           <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
         </label>
         <label>
-          Category
+          {t('itemForm.category')}
           <input
             type="text"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            placeholder="e.g. Dairy"
+            placeholder={t('itemForm.categoryPlaceholder')}
           />
         </label>
         <label>
-          Note
+          {t('itemForm.note')}
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Optional notes"
+            placeholder={t('itemForm.notePlaceholder')}
             rows={3}
           />
         </label>
         {BRANCHES.length > 0 && (
           <label>
-            Branch
+            {t('itemForm.branch')}
             <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">No branch</option>
+              <option value="">{t('itemForm.noBranchOption')}</option>
               {BRANCHES.map((b) => (
                 <option key={b} value={b}>
                   {b}
@@ -170,11 +177,11 @@ export default function ItemFormPage() {
         {error && <div className="form-error">{error}</div>}
         <div className="form-actions">
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('itemForm.saving') : t('itemForm.save')}
           </button>
           {isEditing && (
             <button type="button" className="btn-danger" onClick={handleDelete} disabled={saving}>
-              Delete
+              {t('itemForm.delete')}
             </button>
           )}
         </div>

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../context/LanguageContext';
 import { login } from '../services/authService';
 import { APP_NAME } from '../appConfig';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +23,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err.message || 'Login failed.');
+      setError(err.message || t('login.errorFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -29,10 +32,11 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <form className="auth-form" onSubmit={handleSubmit}>
+        <LanguageSwitcher className="auth-lang-select" />
         <h1>{APP_NAME}</h1>
-        <p className="auth-subtitle">Sign in to your account</p>
+        <p className="auth-subtitle">{t('login.subtitle')}</p>
         <label>
-          Email
+          {t('login.email')}
           <input
             type="email"
             autoComplete="username"
@@ -42,7 +46,7 @@ export default function LoginPage() {
           />
         </label>
         <label>
-          Password
+          {t('login.password')}
           <input
             type="password"
             autoComplete="current-password"
@@ -53,11 +57,9 @@ export default function LoginPage() {
         </label>
         {error && <div className="form-error">{error}</div>}
         <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Log in'}
+          {submitting ? t('login.signingIn') : t('login.loginButton')}
         </button>
-        <p className="auth-note">
-          Accounts are created by an admin. No self sign-up is available.
-        </p>
+        <p className="auth-note">{t('login.note')}</p>
       </form>
     </div>
   );

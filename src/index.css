@@ -160,6 +160,15 @@ h1, h2 {
   color: var(--accent);
 }
 
+.lang-select {
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
 /* Frosted, translucent pill that floats over page content, with a soft top
    highlight to read as a glass surface rather than a flat panel. Sized to
    fit its items and centered independently of the separate Add FAB. */
@@ -485,6 +494,11 @@ h1, h2 {
 .auth-subtitle {
   color: var(--text-muted);
   margin-bottom: 20px;
+}
+
+.auth-lang-select {
+  align-self: flex-end;
+  margin-bottom: 8px;
 }
 
 .auth-note {

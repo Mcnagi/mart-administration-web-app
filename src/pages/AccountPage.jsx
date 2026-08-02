@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../context/LanguageContext';
 import { changePassword } from '../services/authService';
 import { updateOwnDisplayName, updateOwnBranch, defaultDisplayNameFromEmail } from '../services/userService';
 import { BRANCHES } from '../appConfig';
 
 export default function AccountPage() {
   const { user, profile, refreshProfile } = useAuth();
+  const { t } = useTranslation();
 
   const [displayName, setDisplayName] = useState('');
   const [nameMessage, setNameMessage] = useState('');
@@ -36,9 +38,9 @@ export default function AccountPage() {
     try {
       await updateOwnDisplayName(user.uid, displayName);
       await refreshProfile();
-      setNameMessage('Display name updated.');
+      setNameMessage(t('account.displayNameUpdated'));
     } catch (err) {
-      setNameError(err.message || 'Failed to update display name.');
+      setNameError(err.message || t('account.errorDisplayName'));
     } finally {
       setSavingName(false);
     }
@@ -52,9 +54,9 @@ export default function AccountPage() {
     try {
       await updateOwnBranch(user.uid, branch);
       await refreshProfile();
-      setBranchMessage('Branch updated.');
+      setBranchMessage(t('account.branchUpdated'));
     } catch (err) {
-      setBranchError(err.message || 'Failed to update branch.');
+      setBranchError(err.message || t('account.errorBranch'));
     } finally {
       setSavingBranch(false);
     }
@@ -67,11 +69,11 @@ export default function AccountPage() {
     setSaving(true);
     try {
       await changePassword(currentPassword, newPassword);
-      setMessage('Password updated.');
+      setMessage(t('account.passwordUpdated'));
       setCurrentPassword('');
       setNewPassword('');
     } catch (err) {
-      setError(err.message || 'Failed to update password.');
+      setError(err.message || t('account.errorPassword'));
     } finally {
       setSaving(false);
     }
@@ -79,14 +81,14 @@ export default function AccountPage() {
 
   return (
     <div className="page">
-      <h2>Account</h2>
+      <h2>{t('account.title')}</h2>
       <p>
-        Signed in as <strong>{profile?.email}</strong> ({profile?.role})
+        {t('account.signedInAs')} <strong>{profile?.email}</strong> ({profile?.role})
       </p>
 
       <form className="item-form" onSubmit={handleNameSubmit}>
         <label>
-          Display name
+          {t('account.displayName')}
           <input
             type="text"
             value={displayName}
@@ -98,17 +100,17 @@ export default function AccountPage() {
         {nameMessage && <div className="form-success">{nameMessage}</div>}
         {nameError && <div className="form-error">{nameError}</div>}
         <button type="submit" className="btn-primary" disabled={savingName}>
-          {savingName ? 'Saving…' : 'Save display name'}
+          {savingName ? t('account.saving') : t('account.saveDisplayName')}
         </button>
       </form>
 
       {BRANCHES.length > 0 && (
         <form className="item-form" onSubmit={handleBranchSubmit}>
           <label>
-            Branch
+            {t('account.branch')}
             <select value={branch} onChange={(e) => setBranch(e.target.value)} required>
               <option value="" disabled>
-                Select a branch
+                {t('account.selectBranch')}
               </option>
               {BRANCHES.map((b) => (
                 <option key={b} value={b}>
@@ -120,14 +122,14 @@ export default function AccountPage() {
           {branchMessage && <div className="form-success">{branchMessage}</div>}
           {branchError && <div className="form-error">{branchError}</div>}
           <button type="submit" className="btn-primary" disabled={savingBranch}>
-            {savingBranch ? 'Saving…' : 'Save branch'}
+            {savingBranch ? t('account.saving') : t('account.saveBranch')}
           </button>
         </form>
       )}
 
       <form className="item-form" onSubmit={handlePasswordSubmit}>
         <label>
-          Current password
+          {t('account.currentPassword')}
           <input
             type="password"
             autoComplete="current-password"
@@ -137,7 +139,7 @@ export default function AccountPage() {
           />
         </label>
         <label>
-          New password
+          {t('account.newPassword')}
           <input
             type="password"
             autoComplete="new-password"
@@ -150,7 +152,7 @@ export default function AccountPage() {
         {message && <div className="form-success">{message}</div>}
         {error && <div className="form-error">{error}</div>}
         <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Updating…' : 'Update password'}
+          {saving ? t('account.updating') : t('account.updatePassword')}
         </button>
       </form>
     </div>

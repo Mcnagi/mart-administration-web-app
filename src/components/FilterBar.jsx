@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FilterIcon } from './icons';
+import { useTranslation } from '../context/LanguageContext';
 
 // Sticky filter toggle + dropdown panel for the items list. Branch and
 // expiry-group selections are both multiselect (any match within a group,
@@ -14,6 +15,7 @@ export default function FilterBar({
   onToggleExpiryKey,
   onClear,
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const activeCount = selectedBranches.size + selectedExpiryKeys.size;
 
@@ -26,7 +28,7 @@ export default function FilterBar({
         aria-expanded={open}
       >
         <FilterIcon />
-        Filter
+        {t('filterBar.filter')}
         {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
       </button>
 
@@ -34,7 +36,7 @@ export default function FilterBar({
         <div className="filter-panel">
           {branchOptions.length > 0 && (
             <div className="filter-group">
-              <div className="filter-group-label">Branch</div>
+              <div className="filter-group-label">{t('filterBar.branch')}</div>
               <div className="filter-chip-row">
                 {branchOptions.map(({ value, label }) => (
                   <button
@@ -52,7 +54,7 @@ export default function FilterBar({
           )}
 
           <div className="filter-group">
-            <div className="filter-group-label">Days to expire</div>
+            <div className="filter-group-label">{t('filterBar.daysToExpire')}</div>
             <div className="filter-chip-row">
               {expiryGroups.map(({ key, label }) => (
                 <button
@@ -70,7 +72,7 @@ export default function FilterBar({
 
           {activeCount > 0 && (
             <button type="button" className="btn-link filter-clear-btn" onClick={onClear}>
-              Clear filters
+              {t('filterBar.clearFilters')}
             </button>
           )}
         </div>

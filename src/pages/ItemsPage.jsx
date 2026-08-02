@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
+import { useTranslation } from '../context/LanguageContext';
 import {
   fetchSortedItems,
   applyDiscount,
@@ -22,6 +23,7 @@ let itemsCache = null;
 export default function ItemsPage() {
   const { isAdmin } = useAuth();
   const { selecting: selectMode, setSelecting: setSelectMode } = useSelection();
+  const { t } = useTranslation();
   const [items, setItems] = useState(itemsCache);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -47,7 +49,7 @@ export default function ItemsPage() {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load items.');
+        if (!cancelled) setError(err.message || t('items.errorLoad'));
       });
     return () => {
       cancelled = true;
@@ -101,15 +103,18 @@ export default function ItemsPage() {
   // Distinct branches present in the data, plus a "No branch" option when
   // some items have none — independent of the VITE_BRANCHES config so the
   // filter always reflects what's actually on items.
-  const branchOptions = useMemo(() => {
+  const branchNames = useMemo(() => {
     const all = items ?? [];
-    const names = [...new Set(all.map((item) => item.branch).filter(Boolean))].sort();
-    const options = names.map((name) => ({ value: name, label: name }));
-    if (all.some((item) => !item.branch)) {
-      options.push({ value: '', label: 'No branch' });
-    }
-    return options;
+    return {
+      names: [...new Set(all.map((item) => item.branch).filter(Boolean))].sort(),
+      hasNoBranch: all.some((item) => !item.branch),
+    };
   }, [items]);
+
+  const branchOptions = [
+    ...branchNames.names.map((name) => ({ value: name, label: name })),
+    ...(branchNames.hasNoBranch ? [{ value: '', label: t('items.noBranch') }] : []),
+  ];
 
   const filteredItems = useMemo(() => {
     const all = items ?? [];
@@ -132,14 +137,14 @@ export default function ItemsPage() {
       setSelectedIds(new Set());
       setCustomPercent('');
     } catch (err) {
-      setBulkError(err.message || 'Bulk action failed.');
+      setBulkError(err.message || t('items.errorBulk'));
     } finally {
       setBulkBusy(false);
     }
   }
 
   function handleBulkDelete() {
-    if (!confirm(`Delete ${selectedIds.size} item(s)? This cannot be undone.`)) return;
+    if (!confirm(t('items.confirmBulkDelete', { count: selectedIds.size }))) return;
     runBulk(() => removeItems(Array.from(selectedIds)));
   }
 
@@ -150,7 +155,7 @@ export default function ItemsPage() {
     <div className="page">
       {selectMode && selectedIds.size > 0 && (
         <div className="bulk-bar">
-          <span className="bulk-count">{selectedIds.size} selected</span>
+          <span className="bulk-count">{t('items.selectedCount', { count: selectedIds.size })}</span>
           <div className="bulk-actions">
             <button
               className="btn-outline"
@@ -177,28 +182,28 @@ export default function ItemsPage() {
               type="number"
               min="0"
               max="100"
-              placeholder="%"
+              placeholder={t('items.customPercentPlaceholder')}
               className="bulk-percent-input"
               value={customPercent}
               onChange={(e) => setCustomPercent(e.target.value)}
-              aria-label="Custom discount percentage"
+              aria-label={t('items.customPercentAria')}
             />
             <button
               className="btn-outline"
               disabled={bulkBusy || customPercent === ''}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), customPercent))}
             >
-              Apply
+              {t('items.apply')}
             </button>
             <button
               className="btn-outline"
               disabled={bulkBusy}
               onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), null))}
             >
-              None
+              {t('items.none')}
             </button>
             <button className="btn-outline btn-outline-danger" disabled={bulkBusy} onClick={handleBulkDelete}>
-              Delete
+              {t('items.delete')}
             </button>
           </div>
           {bulkError && <div className="form-error">{bulkError}</div>}
@@ -206,7 +211,7 @@ export default function ItemsPage() {
       )}
 
       {items.length === 0 ? (
-        <p className="empty-state">No items yet. Add your first one.</p>
+        <p className="empty-state">{t('items.emptyNone')}</p>
       ) : (
         <>
           <div className="items-toolbar">
@@ -214,7 +219,7 @@ export default function ItemsPage() {
               branchOptions={branchOptions}
               selectedBranches={selectedBranches}
               onToggleBranch={toggleBranchFilter}
-              expiryGroups={EXPIRY_GROUPS}
+              expiryGroups={EXPIRY_GROUPS.map((g) => ({ ...g, label: t(`expiryGroups.${g.key}`) }))}
               selectedExpiryKeys={selectedExpiryKeys}
               onToggleExpiryKey={toggleExpiryFilter}
               onClear={clearFilters}
@@ -225,18 +230,18 @@ export default function ItemsPage() {
                 className={`select-toggle-btn${selectMode ? ' active' : ''}`}
                 onClick={() => setSelectMode((s) => !s)}
               >
-                {selectMode ? 'Cancel' : 'Select'}
+                {selectMode ? t('items.cancel') : t('items.select')}
               </button>
             )}
           </div>
 
           {filteredItems.length === 0 ? (
-            <p className="empty-state">No items match the selected filters.</p>
+            <p className="empty-state">{t('items.emptyFiltered')}</p>
           ) : (
             sections.map((section) => (
               <div className="expiry-section" key={section.key}>
                 <h3 className={`expiry-section-heading expiry-heading-${section.key}`}>
-                  {section.label} <span className="expiry-section-count">{section.items.length}</span>
+                  {t(`expiryGroups.${section.key}`)} <span className="expiry-section-count">{section.items.length}</span>
                 </h3>
                 <div className="item-grid">
                   {section.items.map((item) => (
