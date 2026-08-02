@@ -698,14 +698,19 @@ textarea:focus {
 
 /* ---------- Filter bar ---------- */
 
-.filter-bar {
+.items-toolbar {
   position: sticky;
   top: var(--topbar-h);
   z-index: 9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
   margin: 0 0 16px;
 }
 
-.filter-toggle-btn {
+.filter-toggle-btn,
+.select-toggle-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -720,12 +725,17 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+.select-toggle-btn {
+  flex: none;
+}
+
 .filter-toggle-btn svg {
   width: 15px;
   height: 15px;
 }
 
-.filter-toggle-btn.active {
+.filter-toggle-btn.active,
+.select-toggle-btn.active {
   border-color: var(--accent);
   color: var(--accent);
 }

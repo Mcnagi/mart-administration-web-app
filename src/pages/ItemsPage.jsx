@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
 import {
   fetchSortedItems,
@@ -19,6 +20,7 @@ import FilterBar from '../components/FilterBar';
 let itemsCache = null;
 
 export default function ItemsPage() {
+  const { isAdmin } = useAuth();
   const { selecting: selectMode, setSelecting: setSelectMode } = useSelection();
   const [items, setItems] = useState(itemsCache);
   const [error, setError] = useState('');
@@ -52,14 +54,13 @@ export default function ItemsPage() {
     };
   }, []);
 
-  // Selection state is shared with NavBar (which owns the Select/Cancel
-  // toggle and hides the bottom nav while selecting) via context, which
-  // outlives this page — clear it if the page unmounts while still
-  // selecting so the nav doesn't stay hidden elsewhere.
+  // Selection state is shared with NavBar (which hides the bottom nav while
+  // selecting) via context, which outlives this page — clear it if the page
+  // unmounts while still selecting so the nav doesn't stay hidden elsewhere.
   useEffect(() => () => setSelectMode(false), [setSelectMode]);
 
   // Reset any in-progress selection whenever select mode is toggled, in
-  // either direction, since NavBar owns the toggle button itself.
+  // either direction.
   useEffect(() => {
     setSelectedIds(new Set());
     setBulkError('');
@@ -208,15 +209,26 @@ export default function ItemsPage() {
         <p className="empty-state">No items yet. Add your first one.</p>
       ) : (
         <>
-          <FilterBar
-            branchOptions={branchOptions}
-            selectedBranches={selectedBranches}
-            onToggleBranch={toggleBranchFilter}
-            expiryGroups={EXPIRY_GROUPS}
-            selectedExpiryKeys={selectedExpiryKeys}
-            onToggleExpiryKey={toggleExpiryFilter}
-            onClear={clearFilters}
-          />
+          <div className="items-toolbar">
+            <FilterBar
+              branchOptions={branchOptions}
+              selectedBranches={selectedBranches}
+              onToggleBranch={toggleBranchFilter}
+              expiryGroups={EXPIRY_GROUPS}
+              selectedExpiryKeys={selectedExpiryKeys}
+              onToggleExpiryKey={toggleExpiryFilter}
+              onClear={clearFilters}
+            />
+            {isAdmin && (
+              <button
+                type="button"
+                className={`select-toggle-btn${selectMode ? ' active' : ''}`}
+                onClick={() => setSelectMode((s) => !s)}
+              >
+                {selectMode ? 'Cancel' : 'Select'}
+              </button>
+            )}
+          </div>
 
           {filteredItems.length === 0 ? (
             <p className="empty-state">No items match the selected filters.</p>

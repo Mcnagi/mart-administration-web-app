@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
 import { logout } from '../services/authService';
@@ -8,9 +8,7 @@ import { ItemsIcon, AddIcon, AdminIcon, AccountIcon, LogoutIcon } from './icons'
 
 export default function NavBar() {
   const { profile, isAdmin } = useAuth();
-  const { selecting, setSelecting } = useSelection();
-  const { pathname } = useLocation();
-  const onItemsPage = pathname === '/';
+  const { selecting } = useSelection();
   const displayName = profile && (profile.displayName || defaultDisplayNameFromEmail(profile.email));
 
   return (
@@ -18,11 +16,6 @@ export default function NavBar() {
       <header className="top-bar">
         <span className="navbar-brand">{APP_NAME}</span>
         <div className="top-bar-actions">
-          {onItemsPage && isAdmin && (
-            <button className="btn-link" onClick={() => setSelecting((s) => !s)}>
-              {selecting ? 'Cancel' : 'Select'}
-            </button>
-          )}
           <button className="icon-btn" onClick={() => logout()} aria-label="Log out">
             <LogoutIcon />
           </button>
