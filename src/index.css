@@ -505,7 +505,8 @@ input[type="password"],
 input[type="number"],
 input[type="date"],
 input[type="file"],
-select {
+select,
+textarea {
   font: inherit;
   padding: 12px;
   border: 1px solid var(--border);
@@ -514,8 +515,13 @@ select {
   color: var(--text-h);
 }
 
+textarea {
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

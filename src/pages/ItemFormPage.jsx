@@ -16,6 +16,8 @@ export default function ItemFormPage() {
   const [quantity, setQuantity] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [branch, setBranch] = useState('');
+  const [category, setCategory] = useState('');
+  const [note, setNote] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -43,6 +45,8 @@ export default function ItemFormPage() {
         setQuantity(item.quantity ?? '');
         setExpiryDate(item.expiryDate || '');
         setBranch(item.branch || '');
+        setCategory(item.category || '');
+        setNote(item.note || '');
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
       })
@@ -69,7 +73,7 @@ export default function ItemFormPage() {
     setSaving(true);
     try {
       await saveItem(
-        { id: itemId, name, quantity, expiryDate, branch, photoFile, existingPhotoBase64 },
+        { id: itemId, name, quantity, expiryDate, branch, category, note, photoFile, existingPhotoBase64 },
         user.uid
       );
       navigate('/');
@@ -125,6 +129,24 @@ export default function ItemFormPage() {
         <label>
           Expiry date
           <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+        </label>
+        <label>
+          Category
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="e.g. Dairy"
+          />
+        </label>
+        <label>
+          Note
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional notes"
+            rows={3}
+          />
         </label>
         {BRANCHES.length > 0 && (
           <label>
