@@ -55,3 +55,11 @@ export function LogoutIcon(props) {
     </svg>
   );
 }
+
+export function FilterIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <path d="M4 5.5h16M7.5 12h9M10.5 18.5h3" />
+    </svg>
+  );
+}

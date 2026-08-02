@@ -16,12 +16,35 @@ export function daysUntilExpiry(expiryDate) {
   return Math.round((expiry.getTime() - today.getTime()) / MS_PER_DAY);
 }
 
-export function expiryStatus(expiryDate) {
+// Buckets an expiry date for both the ExpiryBadge on each item card and the
+// filter/section groups on the items list, so the two stay in sync.
+export function expiryBucket(expiryDate) {
   const days = daysUntilExpiry(expiryDate);
   if (days === null) return 'none';
   if (days < 0) return 'expired';
-  if (days <= 3) return 'soon';
-  return 'ok';
+  if (days < 7) return 'week';
+  if (days < 30) return 'month';
+  return 'longer';
+}
+
+// Fixed display order for the expiry groups used to both filter and section
+// the items list.
+export const EXPIRY_GROUPS = [
+  { key: 'expired', label: 'Expired' },
+  { key: 'week', label: 'Less than a week' },
+  { key: 'month', label: 'Less than a month' },
+  { key: 'longer', label: 'Longer' },
+  { key: 'none', label: 'No expiry date' },
+];
+
+// Buckets items by expiryBucket() into EXPIRY_GROUPS order, dropping any
+// group that ends up empty.
+export function groupItemsByExpiry(items) {
+  return EXPIRY_GROUPS.map(({ key, label }) => ({
+    key,
+    label,
+    items: items.filter((item) => expiryBucket(item.expiryDate) === key),
+  })).filter((group) => group.items.length > 0);
 }
 
 // Items with an expiry date come first, soonest-expiring first; items with no

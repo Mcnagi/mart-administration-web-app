@@ -17,6 +17,8 @@
   --expired-text: #991b1b;
   --none-bg: #f0f0f2;
   --none-text: #6b6875;
+  --longer-bg: #dbeafe;
+  --longer-text: #2563eb;
   --shadow: rgba(16, 14, 23, 0.08) 0 2px 8px;
   --topbar-h: 56px;
 
@@ -47,6 +49,8 @@
     --expired-text: #fca5a5;
     --none-bg: #2a2832;
     --none-text: #9b98a3;
+    --longer-bg: #1e3a5f;
+    --longer-text: #60a5fa;
     --shadow: rgba(0, 0, 0, 0.35) 0 2px 8px;
   }
 }
@@ -692,6 +696,139 @@ textarea:focus {
   gap: 6px;
 }
 
+/* ---------- Filter bar ---------- */
+
+.filter-bar {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 9;
+  margin: 0 0 16px;
+}
+
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.filter-toggle-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.filter-toggle-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.filter-panel {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.filter-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.filter-clear-btn {
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+/* ---------- Expiry groups ---------- */
+
+.expiry-section {
+  margin-bottom: 24px;
+}
+
+.expiry-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0 0 10px;
+}
+
+.expiry-section-heading::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.expiry-heading-expired { color: var(--expired-text); }
+.expiry-heading-week { color: var(--soon-text); }
+.expiry-heading-month { color: var(--ok-text); }
+.expiry-heading-longer { color: var(--longer-text); }
+.expiry-heading-none { color: var(--none-text); }
+
+.expiry-section-count {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
 /* ---------- Badges ---------- */
 
 .badge {
@@ -704,7 +841,9 @@ textarea:focus {
 }
 
 .badge-ok { background: var(--ok-bg); color: var(--ok-text); }
-.badge-soon { background: var(--soon-bg); color: var(--soon-text); }
+.badge-week { background: var(--soon-bg); color: var(--soon-text); }
+.badge-month { background: var(--ok-bg); color: var(--ok-text); }
+.badge-longer { background: var(--longer-bg); color: var(--longer-text); }
 .badge-expired { background: var(--expired-bg); color: var(--expired-text); }
 .badge-none { background: var(--none-bg); color: var(--none-text); }
 
