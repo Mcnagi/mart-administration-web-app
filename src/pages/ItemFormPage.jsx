@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { BackIcon } from '../components/icons';
 import { BRANCHES } from '../appConfig';
 
 export default function ItemFormPage() {
@@ -100,7 +101,12 @@ export default function ItemFormPage() {
 
   return (
     <div className="page">
-      <h2>{isEditing ? 'Edit item' : 'Add item'}</h2>
+      <div className="page-header">
+        <button type="button" className="icon-btn" onClick={() => navigate('/')} aria-label="Back">
+          <BackIcon />
+        </button>
+        <h2>{isEditing ? 'Edit item' : 'Add item'}</h2>
+      </div>
       <form className="item-form" onSubmit={handleSubmit}>
         <label>
           Photo
