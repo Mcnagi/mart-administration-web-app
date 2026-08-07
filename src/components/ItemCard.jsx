@@ -19,6 +19,7 @@ export default function ItemCard({ item, selectable = false, selected = false, o
       </div>
       <div className="item-card-body">
         <div className="item-card-name">{item.name}</div>
+        {item.note && <div className="item-card-note">{item.note}</div>}
         <div className="item-card-bottom">
           {item.quantity !== '' && item.quantity !== undefined && (
             <div className="item-card-qty">{t('itemCard.qty', { qty: item.quantity })}</div>
