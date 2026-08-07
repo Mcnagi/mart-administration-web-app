@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import ExpiryBadge from './ExpiryBadge';
+import { discountTier } from '../services/itemService';
 import { useTranslation } from '../context/LanguageContext';
 
 export default function ItemCard({ item, selectable = false, selected = false, onToggleSelect }) {
@@ -13,7 +14,9 @@ export default function ItemCard({ item, selectable = false, selected = false, o
           <div className="item-card-photo-placeholder">{t('itemCard.noPhoto')}</div>
         )}
         {item.discountPercent !== null && item.discountPercent !== undefined && (
-          <span className="discount-badge">{t('itemCard.discountOff', { percent: item.discountPercent })}</span>
+          <span className={`discount-badge discount-badge-${discountTier(item.discountPercent)}`}>
+            {t('itemCard.discountOff', { percent: item.discountPercent })}
+          </span>
         )}
         {selectable && <span className={`select-check${selected ? ' checked' : ''}`} aria-hidden="true" />}
       </div>

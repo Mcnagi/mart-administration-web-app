@@ -17,6 +17,17 @@ export function daysUntilExpiry(expiryDate) {
   return Math.round((expiry.getTime() - today.getTime()) / MS_PER_DAY);
 }
 
+// Buckets a discount percent into a severity tier for the discount badge on
+// each item card, reusing the same color language as the expiry badges (mild
+// green -> amber -> red) so bigger markdowns stand out more.
+export function discountTier(percent) {
+  if (percent === null || percent === undefined || percent === '') return 'none';
+  if (percent <= 0) return 'none';
+  if (percent < 25) return 'mild';
+  if (percent < 50) return 'moderate';
+  return 'steep';
+}
+
 // Buckets an expiry date for both the ExpiryBadge on each item card and the
 // filter/section groups on the items list, so the two stay in sync.
 export function expiryBucket(expiryDate) {

@@ -640,13 +640,16 @@ textarea:focus {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: var(--danger);
-  color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
 }
+
+.discount-badge-none { background: var(--none-bg); color: var(--none-text); }
+.discount-badge-mild { background: var(--ok-bg); color: var(--ok-text); }
+.discount-badge-moderate { background: var(--soon-bg); color: var(--soon-text); }
+.discount-badge-steep { background: var(--expired-bg); color: var(--expired-text); }
 
 .select-check {
   position: absolute;
