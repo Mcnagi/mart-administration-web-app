@@ -25,14 +25,16 @@ service cloud.firestore {
     }
 
     // Users can read their own profile (needed at login to check
-    // disabled/role); admins can read and manage everyone's. A signed-in
-    // user may also update their own displayName and/or branch only — not
-    // role, disabled, or email — via userService.updateOwnDisplayName /
-    // updateOwnBranch. The list of valid branches is env-configured
-    // (VITE_BRANCHES) client-side only; rules just check it's a non-empty
-    // string, since Firestore rules can't see client env vars.
+    // disabled/role) even while disabled; any other active user can look up
+    // a single profile by uid (used to show an item's uploader name); only
+    // admins can list every profile. A signed-in user may also update their
+    // own displayName and/or branch only — not role, disabled, or email —
+    // via userService.updateOwnDisplayName / updateOwnBranch. The list of
+    // valid branches is env-configured (VITE_BRANCHES) client-side only;
+    // rules just check it's a non-empty string, since Firestore rules can't
+    // see client env vars.
     match /users/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow get: if signedIn() && (request.auth.uid == uid || isActive());
       allow list: if isAdmin();
       allow create: if isAdmin();
       allow update: if isAdmin() || (

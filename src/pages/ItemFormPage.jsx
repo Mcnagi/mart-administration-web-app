@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
+import * as usersApi from '../api/usersApi';
+import { defaultDisplayNameFromEmail } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon } from '../components/icons';
 import { BRANCHES } from '../appConfig';
@@ -24,6 +26,7 @@ export default function ItemFormPage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
+  const [uploaderName, setUploaderName] = useState('');
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +55,20 @@ export default function ItemFormPage() {
         setNote(item.note || '');
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
+        if (item.ownerId) {
+          usersApi
+            .getUserProfile(item.ownerId)
+            .then((uploaderProfile) => {
+              if (cancelled) return;
+              // Uploader's profile may have been removed (revokeUser deletes
+              // it rather than the underlying Auth account), so fall back
+              // silently rather than showing an error for a missing name.
+              if (uploaderProfile) {
+                setUploaderName(uploaderProfile.displayName || defaultDisplayNameFromEmail(uploaderProfile.email));
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch((err) => setError(err.message || t('itemForm.errorLoad')))
       .finally(() => !cancelled && setLoading(false));
@@ -109,6 +126,9 @@ export default function ItemFormPage() {
         </button>
         <h2>{isEditing ? t('itemForm.editTitle') : t('itemForm.addTitle')}</h2>
       </div>
+      {isEditing && uploaderName && (
+        <div className="item-form-uploader">{t('itemForm.uploadedBy', { name: uploaderName })}</div>
+      )}
       <form className="item-form" onSubmit={handleSubmit}>
         <label>
           {t('itemForm.photo')}
