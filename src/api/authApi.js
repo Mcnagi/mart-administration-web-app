@@ -10,12 +10,20 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { auth, getSecondaryAuth } from './firebaseClient';
+import { writeLog } from './logsApi';
 
-export function signIn(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+export async function signIn(email, password) {
+  const credential = await signInWithEmailAndPassword(auth, email, password);
+  writeLog('write', { action: 'signIn', collectionName: 'auth', docId: credential.user.uid });
+  return credential;
 }
 
-export function signOutCurrentUser() {
+// Logged (and awaited) before signOut() rather than after: once signOut()
+// resolves, the client's ID token is gone, so a log write attempted
+// afterwards would be unauthenticated and rejected by Firestore rules.
+export async function signOutCurrentUser() {
+  const uid = auth.currentUser?.uid ?? null;
+  await writeLog('write', { action: 'signOut', collectionName: 'auth', docId: uid, actorUid: uid });
   return signOut(auth);
 }
 
@@ -30,6 +38,7 @@ export async function createUserOnSecondaryApp(email, password) {
   const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
   const uid = credential.user.uid;
   await signOut(secondaryAuth);
+  writeLog('write', { action: 'createUser', collectionName: 'auth', docId: uid });
   return uid;
 }
 
@@ -41,7 +50,8 @@ export function reauthenticate(currentPassword) {
   return reauthenticateWithCredential(auth.currentUser, credential);
 }
 
-export function changeOwnPassword(newPassword) {
+export async function changeOwnPassword(newPassword) {
   if (!auth.currentUser) throw new Error('Not signed in');
-  return updatePassword(auth.currentUser, newPassword);
+  await updatePassword(auth.currentUser, newPassword);
+  writeLog('write', { action: 'changePassword', collectionName: 'auth', docId: auth.currentUser.uid });
 }

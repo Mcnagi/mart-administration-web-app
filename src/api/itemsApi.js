@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebaseClient';
+import { writeLog } from './logsApi';
 
 const itemsCol = collection(db, 'items');
 
@@ -19,27 +20,32 @@ export async function listItems() {
   // storage concern, so it's handled in services/itemService.js instead of
   // an orderBy() here — that also avoids needing a composite index.
   const snap = await getDocs(itemsCol);
+  writeLog('read', { action: 'list', collectionName: 'items' });
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export function createItem(item, ownerId) {
-  return addDoc(itemsCol, {
+export async function createItem(item, ownerId) {
+  const ref = await addDoc(itemsCol, {
     ...item,
     ownerId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  writeLog('write', { action: 'create', collectionName: 'items', docId: ref.id });
+  return ref;
 }
 
-export function updateItem(itemId, partialItem) {
-  return updateDoc(doc(itemsCol, itemId), {
+export async function updateItem(itemId, partialItem) {
+  await updateDoc(doc(itemsCol, itemId), {
     ...partialItem,
     updatedAt: serverTimestamp(),
   });
+  writeLog('write', { action: 'update', collectionName: 'items', docId: itemId });
 }
 
-export function deleteItem(itemId) {
-  return deleteDoc(doc(itemsCol, itemId));
+export async function deleteItem(itemId) {
+  await deleteDoc(doc(itemsCol, itemId));
+  writeLog('write', { action: 'delete', collectionName: 'items', docId: itemId });
 }
 
 // Firestore batches cap at 500 ops, well above what a manual multi-select
@@ -50,10 +56,12 @@ export async function batchUpdateItems(itemIds, partialItem) {
     batch.update(doc(itemsCol, id), { ...partialItem, updatedAt: serverTimestamp() });
   });
   await batch.commit();
+  writeLog('write', { action: 'batchUpdate', collectionName: 'items', itemIds });
 }
 
 export async function batchDeleteItems(itemIds) {
   const batch = writeBatch(db);
   itemIds.forEach((id) => batch.delete(doc(itemsCol, id)));
   await batch.commit();
+  writeLog('write', { action: 'batchDelete', collectionName: 'items', itemIds });
 }

@@ -62,5 +62,18 @@ service cloud.firestore {
       allow create: if isActive() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isActive();
     }
+
+    // Append-only audit trail of every items/users read+write and auth
+    // event (see api/logsApi.js). Any signed-in user can write their own
+    // entries — deliberately signedIn() rather than isActive(), so actions
+    // taken while disabled/revoked (e.g. a blocked sign-in attempt) still
+    // get logged — but the logged `uid` must match the caller, so no one
+    // can log an action as someone else. Only admins can read the trail
+    // back, and no entry can ever be edited or deleted once written.
+    match /logs/{logId} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow get, list: if isAdmin();
+      allow update, delete: if false;
+    }
   }
 }
