@@ -15,7 +15,7 @@ export default function ItemFormPage() {
   const isEditing = !!itemId;
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -27,6 +27,7 @@ export default function ItemFormPage() {
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [uploaderName, setUploaderName] = useState('');
+  const [uploadedAt, setUploadedAt] = useState(null);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +56,7 @@ export default function ItemFormPage() {
         setNote(item.note || '');
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
+        setUploadedAt(item.createdAt?.toDate?.() ?? null);
         if (item.ownerId) {
           usersApi
             .getUserProfile(item.ownerId)
@@ -126,8 +128,12 @@ export default function ItemFormPage() {
         </button>
         <h2>{isEditing ? t('itemForm.editTitle') : t('itemForm.addTitle')}</h2>
       </div>
-      {isEditing && uploaderName && (
-        <div className="item-form-uploader">{t('itemForm.uploadedBy', { name: uploaderName })}</div>
+      {isEditing && (uploaderName || uploadedAt) && (
+        <div className="item-form-uploader">
+          {uploaderName && t('itemForm.uploadedBy', { name: uploaderName })}
+          {uploaderName && uploadedAt && ' · '}
+          {uploadedAt && t('itemForm.uploadedOn', { date: uploadedAt.toLocaleDateString(language) })}
+        </div>
       )}
       <form className="item-form" onSubmit={handleSubmit}>
         <label>

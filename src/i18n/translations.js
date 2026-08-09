@@ -67,6 +67,11 @@ export const translations = {
       daysToExpire: 'Days to expire',
       clearFilters: 'Clear filters',
     },
+    sortBar: {
+      label: 'Sort by',
+      expiry: 'Expiry date',
+      uploaded: 'Upload date',
+    },
     itemForm: {
       editTitle: 'Edit item',
       addTitle: 'Add item',
@@ -83,6 +88,7 @@ export const translations = {
       note: 'Note',
       notePlaceholder: 'Optional notes',
       uploadedBy: 'Uploaded by {name}',
+      uploadedOn: 'Uploaded on {date}',
       branch: 'Branch',
       noBranchOption: 'No branch',
       save: 'Save',
@@ -214,6 +220,11 @@ export const translations = {
       daysToExpire: '남은 유통기한',
       clearFilters: '필터 초기화',
     },
+    sortBar: {
+      label: '정렬 기준',
+      expiry: '유통기한',
+      uploaded: '등록일',
+    },
     itemForm: {
       editTitle: '품목 수정',
       addTitle: '품목 추가',
@@ -230,6 +241,7 @@ export const translations = {
       note: '메모',
       notePlaceholder: '선택 사항',
       uploadedBy: '{name} 님이 등록',
+      uploadedOn: '{date}에 등록됨',
       branch: '지점',
       noBranchOption: '지점 없음',
       save: '저장',

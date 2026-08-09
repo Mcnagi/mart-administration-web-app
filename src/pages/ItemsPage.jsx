@@ -3,7 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import {
-  fetchSortedItems,
+  fetchItems,
+  sortByExpiry,
+  sortByCreatedAt,
   applyDiscount,
   removeItems,
   expiryBucket,
@@ -32,16 +34,17 @@ export default function ItemsPage() {
   const [bulkError, setBulkError] = useState('');
   const [selectedBranches, setSelectedBranches] = useState(new Set());
   const [selectedExpiryKeys, setSelectedExpiryKeys] = useState(new Set());
+  const [sortBy, setSortBy] = useState('expiry');
 
   async function loadItems() {
-    const data = await fetchSortedItems();
+    const data = await fetchItems();
     itemsCache = data;
     setItems(data);
   }
 
   useEffect(() => {
     let cancelled = false;
-    fetchSortedItems()
+    fetchItems()
       .then((data) => {
         if (!cancelled) {
           itemsCache = data;
@@ -125,7 +128,18 @@ export default function ItemsPage() {
     });
   }, [items, selectedBranches, selectedExpiryKeys]);
 
-  const sections = useMemo(() => groupItemsByExpiry(filteredItems), [filteredItems]);
+  // Sorting by expiry keeps the expiry-bucket sections; sorting by upload
+  // date is a flat, most-recent-first list instead, since "uploaded" has no
+  // natural bucketing of its own.
+  const sortedItems = useMemo(
+    () => (sortBy === 'uploaded' ? sortByCreatedAt(filteredItems) : sortByExpiry(filteredItems)),
+    [filteredItems, sortBy]
+  );
+
+  const sections = useMemo(
+    () => (sortBy === 'uploaded' ? [{ key: 'all', items: sortedItems }] : groupItemsByExpiry(sortedItems)),
+    [sortedItems, sortBy]
+  );
 
   async function runBulk(action) {
     if (selectedIds.size === 0) return;
@@ -215,15 +229,24 @@ export default function ItemsPage() {
       ) : (
         <>
           <div className="items-toolbar">
-            <FilterBar
-              branchOptions={branchOptions}
-              selectedBranches={selectedBranches}
-              onToggleBranch={toggleBranchFilter}
-              expiryGroups={EXPIRY_GROUPS.map((g) => ({ ...g, label: t(`expiryGroups.${g.key}`) }))}
-              selectedExpiryKeys={selectedExpiryKeys}
-              onToggleExpiryKey={toggleExpiryFilter}
-              onClear={clearFilters}
-            />
+            <div className="items-toolbar-left">
+              <FilterBar
+                branchOptions={branchOptions}
+                selectedBranches={selectedBranches}
+                onToggleBranch={toggleBranchFilter}
+                expiryGroups={EXPIRY_GROUPS.map((g) => ({ ...g, label: t(`expiryGroups.${g.key}`) }))}
+                selectedExpiryKeys={selectedExpiryKeys}
+                onToggleExpiryKey={toggleExpiryFilter}
+                onClear={clearFilters}
+              />
+              <label className="sort-select-label">
+                <span className="sort-select-label-text">{t('sortBar.label')}</span>
+                <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="expiry">{t('sortBar.expiry')}</option>
+                  <option value="uploaded">{t('sortBar.uploaded')}</option>
+                </select>
+              </label>
+            </div>
             {isAdmin && (
               <button
                 type="button"
@@ -240,9 +263,12 @@ export default function ItemsPage() {
           ) : (
             sections.map((section) => (
               <div className="expiry-section" key={section.key}>
-                <h3 className={`expiry-section-heading expiry-heading-${section.key}`}>
-                  {t(`expiryGroups.${section.key}`)} <span className="expiry-section-count">{section.items.length}</span>
-                </h3>
+                {sortBy !== 'uploaded' && (
+                  <h3 className={`expiry-section-heading expiry-heading-${section.key}`}>
+                    {t(`expiryGroups.${section.key}`)}{' '}
+                    <span className="expiry-section-count">{section.items.length}</span>
+                  </h3>
+                )}
                 <div className="item-grid">
                   {section.items.map((item) => (
                     <ItemCard

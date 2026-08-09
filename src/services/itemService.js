@@ -70,9 +70,23 @@ export function sortByExpiry(items) {
   });
 }
 
-export async function fetchSortedItems() {
-  const items = await itemsApi.listItems();
-  return sortByExpiry(items);
+// Most recently uploaded first. `createdAt` is a Firestore server timestamp
+// (not a plain string like expiryDate), so it's compared via toMillis();
+// items missing it (e.g. an in-flight write not yet resolved) sort last.
+export function sortByCreatedAt(items) {
+  const millis = (item) => item.createdAt?.toMillis?.() ?? null;
+  return [...items].sort((a, b) => {
+    const aMs = millis(a);
+    const bMs = millis(b);
+    if (aMs === null && bMs === null) return 0;
+    if (aMs === null) return 1;
+    if (bMs === null) return -1;
+    return bMs - aMs;
+  });
+}
+
+export function fetchItems() {
+  return itemsApi.listItems();
 }
 
 // `input` may include a raw File under `photoFile`; every field is optional.
