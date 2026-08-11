@@ -28,6 +28,11 @@ export function discountTier(percent) {
   return 'steep';
 }
 
+// Used by the "Has discount" items-list filter.
+export function hasDiscount(item) {
+  return discountTier(item.discountPercent) !== 'none';
+}
+
 // Buckets an expiry date for both the ExpiryBadge on each item card and the
 // filter/section groups on the items list, so the two stay in sync.
 export function expiryBucket(expiryDate) {

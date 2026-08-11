@@ -13,11 +13,13 @@ export default function FilterBar({
   expiryGroups,
   selectedExpiryKeys,
   onToggleExpiryKey,
+  discountOnly,
+  onToggleDiscountOnly,
   onClear,
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const activeCount = selectedBranches.size + selectedExpiryKeys.size;
+  const activeCount = selectedBranches.size + selectedExpiryKeys.size + (discountOnly ? 1 : 0);
 
   return (
     <div className="filter-bar">
@@ -67,6 +69,20 @@ export default function FilterBar({
                   {label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="filter-group">
+            <div className="filter-group-label">{t('filterBar.discount')}</div>
+            <div className="filter-chip-row">
+              <button
+                type="button"
+                className={`filter-chip${discountOnly ? ' selected' : ''}`}
+                aria-pressed={discountOnly}
+                onClick={onToggleDiscountOnly}
+              >
+                {t('filterBar.hasDiscount')}
+              </button>
             </div>
           </div>
 
