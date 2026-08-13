@@ -66,8 +66,11 @@ export const translations = {
       branch: 'Branch',
       daysToExpire: 'Days to expire',
       discount: 'Discount',
-      hasDiscount: 'Has discount',
       clearFilters: 'Clear filters',
+    },
+    discountGroups: {
+      has: 'Has discount',
+      none: 'No discount',
     },
     sortBar: {
       label: 'Sort by',
@@ -221,8 +224,11 @@ export const translations = {
       branch: '지점',
       daysToExpire: '남은 유통기한',
       discount: '할인',
-      hasDiscount: '할인 중',
       clearFilters: '필터 초기화',
+    },
+    discountGroups: {
+      has: '할인 중',
+      none: '할인 없음',
     },
     sortBar: {
       label: '정렬 기준',

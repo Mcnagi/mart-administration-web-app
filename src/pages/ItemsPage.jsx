@@ -9,8 +9,9 @@ import {
   applyDiscount,
   removeItems,
   expiryBucket,
-  hasDiscount,
+  discountBucket,
   EXPIRY_GROUPS,
+  DISCOUNT_GROUPS,
   groupItemsByExpiry,
 } from '../services/itemService';
 import ItemCard from '../components/ItemCard';
@@ -35,7 +36,7 @@ export default function ItemsPage() {
   const [bulkError, setBulkError] = useState('');
   const [selectedBranches, setSelectedBranches] = useState(new Set());
   const [selectedExpiryKeys, setSelectedExpiryKeys] = useState(new Set());
-  const [discountOnly, setDiscountOnly] = useState(false);
+  const [selectedDiscountKeys, setSelectedDiscountKeys] = useState(new Set());
   const [sortBy, setSortBy] = useState('expiry');
 
   async function loadItems() {
@@ -100,14 +101,19 @@ export default function ItemsPage() {
     });
   }
 
-  function toggleDiscountOnlyFilter() {
-    setDiscountOnly((prev) => !prev);
+  function toggleDiscountFilter(key) {
+    setSelectedDiscountKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   function clearFilters() {
     setSelectedBranches(new Set());
     setSelectedExpiryKeys(new Set());
-    setDiscountOnly(false);
+    setSelectedDiscountKeys(new Set());
   }
 
   // Distinct branches present in the data, plus a "No branch" option when
@@ -131,10 +137,10 @@ export default function ItemsPage() {
     return all.filter((item) => {
       if (selectedBranches.size > 0 && !selectedBranches.has(item.branch || '')) return false;
       if (selectedExpiryKeys.size > 0 && !selectedExpiryKeys.has(expiryBucket(item.expiryDate))) return false;
-      if (discountOnly && !hasDiscount(item)) return false;
+      if (selectedDiscountKeys.size > 0 && !selectedDiscountKeys.has(discountBucket(item))) return false;
       return true;
     });
-  }, [items, selectedBranches, selectedExpiryKeys, discountOnly]);
+  }, [items, selectedBranches, selectedExpiryKeys, selectedDiscountKeys]);
 
   // Sorting by expiry keeps the expiry-bucket sections; sorting by upload
   // date is a flat, most-recent-first list instead, since "uploaded" has no
@@ -245,8 +251,9 @@ export default function ItemsPage() {
                 expiryGroups={EXPIRY_GROUPS.map((g) => ({ ...g, label: t(`expiryGroups.${g.key}`) }))}
                 selectedExpiryKeys={selectedExpiryKeys}
                 onToggleExpiryKey={toggleExpiryFilter}
-                discountOnly={discountOnly}
-                onToggleDiscountOnly={toggleDiscountOnlyFilter}
+                discountGroups={DISCOUNT_GROUPS.map((g) => ({ ...g, label: t(`discountGroups.${g.key}`) }))}
+                selectedDiscountKeys={selectedDiscountKeys}
+                onToggleDiscountKey={toggleDiscountFilter}
                 onClear={clearFilters}
               />
               <label className="sort-select-label">

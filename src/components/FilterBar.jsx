@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { FilterIcon } from './icons';
 import { useTranslation } from '../context/LanguageContext';
 
-// Sticky filter toggle + dropdown panel for the items list. Branch and
-// expiry-group selections are both multiselect (any match within a group,
-// AND across groups) and are owned by the parent so it can also use them to
-// filter/section the item list.
+// Sticky filter toggle + dropdown panel for the items list. Branch,
+// expiry-group, and discount selections are all multiselect (any match
+// within a group, AND across groups) and are owned by the parent so it can
+// also use them to filter/section the item list.
 export default function FilterBar({
   branchOptions,
   selectedBranches,
@@ -13,13 +13,14 @@ export default function FilterBar({
   expiryGroups,
   selectedExpiryKeys,
   onToggleExpiryKey,
-  discountOnly,
-  onToggleDiscountOnly,
+  discountGroups,
+  selectedDiscountKeys,
+  onToggleDiscountKey,
   onClear,
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const activeCount = selectedBranches.size + selectedExpiryKeys.size + (discountOnly ? 1 : 0);
+  const activeCount = selectedBranches.size + selectedExpiryKeys.size + selectedDiscountKeys.size;
 
   return (
     <div className="filter-bar">
@@ -75,14 +76,17 @@ export default function FilterBar({
           <div className="filter-group">
             <div className="filter-group-label">{t('filterBar.discount')}</div>
             <div className="filter-chip-row">
-              <button
-                type="button"
-                className={`filter-chip${discountOnly ? ' selected' : ''}`}
-                aria-pressed={discountOnly}
-                onClick={onToggleDiscountOnly}
-              >
-                {t('filterBar.hasDiscount')}
-              </button>
+              {discountGroups.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`filter-chip${selectedDiscountKeys.has(key) ? ' selected' : ''}`}
+                  aria-pressed={selectedDiscountKeys.has(key)}
+                  onClick={() => onToggleDiscountKey(key)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
