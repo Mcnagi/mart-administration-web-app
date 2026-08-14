@@ -72,6 +72,13 @@ service cloud.firestore {
       allow update, delete: if isActive();
     }
 
+    // Raw staging store for admin Excel imports (services/dataService.js),
+    // decoupled from the curated `items` inventory above — admin-only in
+    // both directions since nothing else in the app reads or writes it.
+    match /data/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // Append-only audit trail of every items/users read+write and auth
     // event (see api/logsApi.js). Any signed-in user can write their own
     // entries — deliberately signedIn() rather than isActive(), so actions

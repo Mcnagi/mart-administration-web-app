@@ -91,6 +91,9 @@ export const translations = {
       expiryDate: 'Expiry date',
       category: 'Category',
       categoryPlaceholder: 'e.g. Dairy',
+      barcode: 'Barcode',
+      barcodePlaceholder: 'Scan or type a barcode',
+      scan: 'Scan',
       note: 'Note',
       notePlaceholder: 'Optional notes',
       uploadedBy: 'Uploaded by {name}',
@@ -106,6 +109,11 @@ export const translations = {
       errorSave: 'Failed to save item.',
       errorDelete: 'Failed to delete item.',
       createPromo: 'Create promo from this item',
+    },
+    barcodeScanner: {
+      title: 'Scan barcode',
+      close: 'Close',
+      errorCamera: 'Could not access the camera. Check permissions and try again.',
     },
     promos: {
       libraryTitle: 'Promo library',
@@ -190,6 +198,13 @@ export const translations = {
       disable: 'Disable',
       delete: 'Delete',
       confirmRevoke: "Remove {email}'s access? This cannot be undone from here.",
+      importTitle: 'Import items',
+      importHint:
+        'Upload an .xlsx file with a header row. A "Barcode" column is required — it\'s used as each item\'s ID, so re-uploading the same barcode updates that item instead of duplicating it. Other column headers (Name, Quantity, Expiry Date, Category, Branch, Note, …) are matched to item fields automatically.',
+      importButton: 'Import',
+      importing: 'Importing…',
+      importSummary: 'Imported {created} new, updated {updated}, skipped {skipped} row(s) without a barcode.',
+      errorImport: 'Import failed.',
     },
     common: {
       loading: 'Loading',
@@ -209,6 +224,9 @@ export const translations = {
       photoTooLarge: 'Photo is too large even after compression. Try a different photo.',
       promoNameRequired: 'Product name (English) is required.',
       priceRange: 'Price must be a positive number.',
+      importEmpty: 'The file has no data rows.',
+      importNoBarcodeColumn: 'No "Barcode" column found in the header row.',
+      importNoValidRows: 'No rows had a barcode value.',
     },
   },
   ko: {
@@ -294,6 +312,9 @@ export const translations = {
       expiryDate: '유통기한',
       category: '분류',
       categoryPlaceholder: '예: 유제품',
+      barcode: '바코드',
+      barcodePlaceholder: '바코드를 스캔하거나 입력하세요',
+      scan: '스캔',
       note: '메모',
       notePlaceholder: '선택 사항',
       uploadedBy: '{name} 님이 등록',
@@ -309,6 +330,11 @@ export const translations = {
       errorSave: '품목을 저장하지 못했습니다.',
       errorDelete: '품목을 삭제하지 못했습니다.',
       createPromo: '이 품목으로 프로모션 만들기',
+    },
+    barcodeScanner: {
+      title: '바코드 스캔',
+      close: '닫기',
+      errorCamera: '카메라에 접근할 수 없습니다. 권한을 확인한 후 다시 시도하세요.',
     },
     promos: {
       libraryTitle: '프로모션 보관함',
@@ -393,6 +419,13 @@ export const translations = {
       disable: '비활성화',
       delete: '삭제',
       confirmRevoke: '{email}의 접근 권한을 삭제하시겠습니까? 이 작업은 여기서 되돌릴 수 없습니다.',
+      importTitle: '품목 일괄 등록',
+      importHint:
+        '머리글 행이 있는 .xlsx 파일을 업로드하세요. "Barcode" 열은 필수이며 각 품목의 ID로 사용되므로, 같은 바코드를 다시 업로드하면 중복 생성 대신 기존 품목이 갱신됩니다. 다른 열 이름(Name, Quantity, Expiry Date, Category, Branch, Note 등)은 자동으로 품목 필드에 매칭됩니다.',
+      importButton: '가져오기',
+      importing: '가져오는 중…',
+      importSummary: '{created}개 추가, {updated}개 갱신, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',
+      errorImport: '가져오기에 실패했습니다.',
     },
     common: {
       loading: '로딩 중',
@@ -412,6 +445,9 @@ export const translations = {
       photoTooLarge: '압축 후에도 사진 용량이 너무 큽니다. 다른 사진을 사용해 보세요.',
       promoNameRequired: '상품명(영어)은 필수입니다.',
       priceRange: '가격은 0 이상의 숫자여야 합니다.',
+      importEmpty: '파일에 데이터 행이 없습니다.',
+      importNoBarcodeColumn: '머리글 행에서 "Barcode" 열을 찾을 수 없습니다.',
+      importNoValidRows: '바코드 값이 있는 행이 없습니다.',
     },
   },
 };

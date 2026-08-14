@@ -99,7 +99,7 @@ export function fetchItems() {
 
 // `input` may include a raw File under `photoFile`; every field is optional.
 export async function saveItem(
-  { id, name, quantity, expiryDate, branch, category, note, photoFile, existingPhotoBase64 },
+  { id, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
   ownerId
 ) {
   let photoBase64 = existingPhotoBase64 ?? '';
@@ -117,6 +117,7 @@ export async function saveItem(
     branch: branch ?? '',
     category: (category ?? '').trim(),
     note: (note ?? '').trim(),
+    barcode: (barcode ?? '').trim(),
     photoBase64,
   };
 

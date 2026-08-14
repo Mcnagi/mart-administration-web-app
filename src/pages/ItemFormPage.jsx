@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -7,8 +7,12 @@ import * as itemsApi from '../api/itemsApi';
 import * as usersApi from '../api/usersApi';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { BackIcon } from '../components/icons';
+import { BackIcon, BarcodeIcon } from '../components/icons';
 import { BRANCHES } from '../appConfig';
+
+// Lazy-loaded: pulls in @zxing/browser, which is sizable and only needed by
+// the minority of visits that actually tap "Scan".
+const BarcodeScanner = lazy(() => import('../components/BarcodeScanner'));
 
 export default function ItemFormPage() {
   const { itemId } = useParams();
@@ -23,6 +27,8 @@ export default function ItemFormPage() {
   const [branch, setBranch] = useState('');
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [scanning, setScanning] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -54,6 +60,7 @@ export default function ItemFormPage() {
         setBranch(item.branch || '');
         setCategory(item.category || '');
         setNote(item.note || '');
+        setBarcode(item.barcode || '');
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
         setUploadedAt(item.createdAt?.toDate?.() ?? null);
@@ -89,13 +96,18 @@ export default function ItemFormPage() {
     setPreviewUrl(URL.createObjectURL(file));
   }
 
+  function handleBarcodeDetected(code) {
+    setBarcode(code);
+    setScanning(false);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setSaving(true);
     try {
       await saveItem(
-        { id: itemId, name, quantity, expiryDate, branch, category, note, photoFile, existingPhotoBase64 },
+        { id: itemId, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
         user.uid
       );
       navigate('/');
@@ -141,6 +153,21 @@ export default function ItemFormPage() {
         </Link>
       )}
       <form className="item-form" onSubmit={handleSubmit}>
+        <label>
+          {t('itemForm.barcode')}
+          <div className="barcode-input-row">
+            <input
+              type="text"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              placeholder={t('itemForm.barcodePlaceholder')}
+            />
+            <button type="button" className="btn-outline barcode-scan-btn" onClick={() => setScanning(true)}>
+              <BarcodeIcon />
+              {t('itemForm.scan')}
+            </button>
+          </div>
+        </label>
         <label>
           {t('itemForm.photo')}
           <input type="file" accept="image/*" onChange={handlePhotoChange} />
@@ -217,6 +244,11 @@ export default function ItemFormPage() {
           )}
         </div>
       </form>
+      {scanning && (
+        <Suspense fallback={<LoadingSpinner />}>
+          <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setScanning(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

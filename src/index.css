@@ -59,11 +59,15 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
 }
 
-h1, h2 {
+h1, h2, h3 {
   color: var(--text-h);
   font-weight: 600;
   margin: 0 0 8px;
@@ -566,6 +570,87 @@ textarea:focus {
   gap: 12px;
 }
 
+.import-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: -8px 0 0;
+}
+
+.barcode-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.barcode-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.barcode-scan-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.barcode-scan-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.barcode-scanner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+}
+
+.barcode-scanner-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  font-weight: 600;
+}
+
+.barcode-scanner-header .icon-btn {
+  color: #fff;
+}
+
+.barcode-scanner-viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.barcode-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.barcode-scanner-frame {
+  position: absolute;
+  inset: 20% 10%;
+  border: 2px solid #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.barcode-scanner-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
 .form-error {
   color: var(--danger);
   font-size: 14px;
@@ -985,13 +1070,13 @@ textarea:focus {
   }
 }
 
-/* ---------- Ads (promo flyer builder/library/print) ----------
-   The ad template is theme-neutral by design (fixed white paper + red/ink
-   colors, not the app's light/dark tokens) since it's meant to look
-   identical on screen and on a printed page regardless of the viewer's
-   OS theme. */
+/* ---------- Promos (promo flyer builder/library/print) ----------
+   The promo template is theme-neutral by design (fixed white paper +
+   red/ink colors, not the app's light/dark tokens) since it's meant to
+   look identical on screen and on a printed page regardless of the
+   viewer's OS theme. */
 
-.ads-toolbar {
+.promos-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -999,19 +1084,19 @@ textarea:focus {
   margin-bottom: 16px;
 }
 
-.ads-toolbar-actions {
+.promos-toolbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.ad-library-grid {
+.promo-library-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
 }
 
-.ad-library-card {
+.promo-library-card {
   display: block;
   width: 100%;
   background: var(--surface);
@@ -1025,13 +1110,13 @@ textarea:focus {
   cursor: pointer;
 }
 
-.create-ad-link {
+.create-promo-link {
   display: inline-flex;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.ad-library-card-name {
+.promo-library-card-name {
   margin-top: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -1041,27 +1126,27 @@ textarea:focus {
   white-space: nowrap;
 }
 
-.ad-library-card.selected {
+.promo-library-card.selected {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.ad-builder-layout {
+.promo-builder-layout {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
 @media (min-width: 860px) {
-  .ad-builder-layout {
+  .promo-builder-layout {
     flex-direction: row;
     align-items: flex-start;
   }
-  .ad-builder-form {
+  .promo-builder-form {
     flex: 1;
     min-width: 0;
   }
-  .ad-builder-preview {
+  .promo-builder-preview {
     flex: 1;
     min-width: 0;
     position: sticky;
@@ -1069,21 +1154,21 @@ textarea:focus {
   }
 }
 
-.ad-builder-preview-frame {
+.promo-builder-preview-frame {
   overflow: auto;
   border-radius: 12px;
   background: #4b4b4b;
   padding: 16px;
 }
 
-.ad-photo-input-row {
+.promo-photo-input-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
-.ad-photo-dropzone {
+.promo-photo-dropzone {
   border: 1px dashed var(--border);
   border-radius: 12px;
   padding: 16px;
@@ -1093,40 +1178,40 @@ textarea:focus {
   cursor: text;
 }
 
-.ad-photo-dropzone:focus {
+.promo-photo-dropzone:focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Real paper dimensions (mm) — keep in sync with AD_SLOT_SIZE_MM in
-   components/AdTemplate.jsx. */
-.ad-slot {
+/* Real paper dimensions (mm) — keep in sync with PROMO_SLOT_SIZE_MM in
+   components/PromoTemplate.jsx. */
+.promo-slot {
   padding: 1cm;
   box-sizing: border-box;
   background: #fff;
 }
 
-.ad-slot--full {
+.promo-slot--full {
   width: 210mm;
   height: 297mm;
 }
 
-.ad-slot--half {
+.promo-slot--half {
   width: 210mm;
   height: 148.5mm;
 }
 
-.ad-slot--pair {
+.promo-slot--pair {
   width: 297mm;
   height: 105mm;
 }
 
-.ad-thumb {
+.promo-thumb {
   overflow: hidden;
   border-radius: 8px;
 }
 
-.ad-frame {
+.promo-frame {
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -1135,7 +1220,7 @@ textarea:focus {
   overflow: hidden;
 }
 
-.ad-inner {
+.promo-inner {
   height: 100%;
   box-sizing: border-box;
   padding: 6mm;
@@ -1144,31 +1229,31 @@ textarea:focus {
   overflow: hidden;
 }
 
-.ad-logo {
+.promo-logo {
   text-align: center;
   margin-bottom: 4mm;
 }
 
-.ad-logo img {
+.promo-logo img {
   max-height: 18mm;
   max-width: 60%;
   object-fit: contain;
 }
 
-.ad-logo-text {
+.promo-logo-text {
   font-weight: 800;
   font-size: 20px;
   color: #d6336c;
 }
 
-.ad-body {
+.promo-body {
   flex: 1;
   min-height: 0;
   display: flex;
   gap: 6mm;
 }
 
-.ad-text {
+.promo-text {
   flex: 1.3;
   min-width: 0;
   display: flex;
@@ -1177,7 +1262,7 @@ textarea:focus {
   gap: 3mm;
 }
 
-.ad-name-en {
+.promo-name-en {
   font-weight: 800;
   font-style: italic;
   color: #1a1a1a;
@@ -1185,7 +1270,7 @@ textarea:focus {
   font-size: 22px;
 }
 
-.ad-name-ko {
+.promo-name-ko {
   font-weight: 700;
   font-style: italic;
   color: #1a1a1a;
@@ -1193,59 +1278,59 @@ textarea:focus {
   font-size: 16px;
 }
 
-.ad-price-original {
+.promo-price-original {
   font-size: 13px;
   color: #666;
   text-decoration: line-through;
 }
 
-.ad-price-highlight {
+.promo-price-highlight {
   display: inline-block;
   background: #fff23d;
   padding: 3mm 5mm;
   width: fit-content;
 }
 
-.ad-discount-percent {
+.promo-discount-percent {
   font-weight: 800;
   color: #d6336c;
   line-height: 1.15;
   font-size: 22px;
 }
 
-.ad-price-final {
+.promo-price-final {
   font-weight: 800;
   color: #d6336c;
   line-height: 1.15;
   font-size: 20px;
 }
 
-.ad-slot--full .ad-name-en,
-.ad-slot--half .ad-name-en {
+.promo-slot--full .promo-name-en,
+.promo-slot--half .promo-name-en {
   font-size: 34px;
 }
 
-.ad-slot--full .ad-name-ko,
-.ad-slot--half .ad-name-ko {
+.promo-slot--full .promo-name-ko,
+.promo-slot--half .promo-name-ko {
   font-size: 24px;
 }
 
-.ad-slot--full .ad-price-original,
-.ad-slot--half .ad-price-original {
+.promo-slot--full .promo-price-original,
+.promo-slot--half .promo-price-original {
   font-size: 18px;
 }
 
-.ad-slot--full .ad-discount-percent,
-.ad-slot--half .ad-discount-percent {
+.promo-slot--full .promo-discount-percent,
+.promo-slot--half .promo-discount-percent {
   font-size: 34px;
 }
 
-.ad-slot--full .ad-price-final,
-.ad-slot--half .ad-price-final {
+.promo-slot--full .promo-price-final,
+.promo-slot--half .promo-price-final {
   font-size: 30px;
 }
 
-.ad-photo {
+.promo-photo {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1253,13 +1338,13 @@ textarea:focus {
   justify-content: center;
 }
 
-.ad-photo img {
+.promo-photo img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
 }
 
-.ad-photo-placeholder {
+.promo-photo-placeholder {
   width: 100%;
   height: 100%;
   min-height: 20mm;
@@ -1267,16 +1352,16 @@ textarea:focus {
   border-radius: 8px;
 }
 
-/* ---------- Ad print page ---------- */
+/* ---------- Promo print page ---------- */
 
-.ad-print-toolbar {
+.promo-print-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px;
 }
 
-.ad-print-page {
+.promo-print-page {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1286,14 +1371,14 @@ textarea:focus {
   overflow-x: auto;
 }
 
-.ad-print-sheet {
+.promo-print-sheet {
   width: 210mm;
   height: 297mm;
   background: #fff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-.ad-print-sheet--landscape {
+.promo-print-sheet--landscape {
   width: 297mm;
   height: 210mm;
   background: #fff;
@@ -1313,19 +1398,19 @@ textarea:focus {
   }
 
   .app-shell,
-  .ad-print-page {
+  .promo-print-page {
     background: #fff;
     padding: 0;
     gap: 0;
   }
 
-  .ad-print-sheet,
-  .ad-print-sheet--landscape {
+  .promo-print-sheet,
+  .promo-print-sheet--landscape {
     box-shadow: none;
   }
 
-  .ad-print-sheet:not(:last-child),
-  .ad-print-sheet--landscape:not(:last-child) {
+  .promo-print-sheet:not(:last-child),
+  .promo-print-sheet--landscape:not(:last-child) {
     break-after: page;
   }
 }

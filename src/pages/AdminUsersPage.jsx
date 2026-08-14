@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import * as userService from '../services/userService';
+import { importExcelData } from '../services/dataService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AdminUsersPage() {
-  const { profile: currentProfile } = useAuth();
+  const { user, profile: currentProfile } = useAuth();
   const { t } = useTranslation();
   const [users, setUsers] = useState(null);
   const [error, setError] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [creating, setCreating] = useState(false);
   const [createdCredential, setCreatedCredential] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importSummary, setImportSummary] = useState(null);
+  const importInputRef = useRef(null);
 
   async function refresh() {
     const list = await userService.listUsers();
@@ -71,6 +76,23 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportSummary(null);
+    setImporting(true);
+    try {
+      const summary = await importExcelData(file, user.uid);
+      setImportSummary(summary);
+    } catch (err) {
+      setImportError(err.message || t('admin.errorImport'));
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  }
+
   if (users === null) return <LoadingSpinner />;
 
   return (
@@ -103,6 +125,31 @@ export default function AdminUsersPage() {
       )}
 
       {error && <div className="form-error">{error}</div>}
+
+      <div className="item-form">
+        <h3>{t('admin.importTitle')}</h3>
+        <p className="import-hint">{t('admin.importHint')}</p>
+        <label>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx"
+            onChange={handleImportFile}
+            disabled={importing}
+          />
+        </label>
+        {importing && <LoadingSpinner />}
+        {importSummary && (
+          <div className="callout">
+            {t('admin.importSummary', {
+              created: importSummary.created,
+              updated: importSummary.updated,
+              skipped: importSummary.skipped,
+            })}
+          </div>
+        )}
+        {importError && <div className="form-error">{importError}</div>}
+      </div>
 
       <ul className="user-list">
         {users.map((u) => (
