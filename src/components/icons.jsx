@@ -71,3 +71,12 @@ export function FilterIcon(props) {
     </svg>
   );
 }
+
+export function PromoIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <path d="M11.5 4.5h6a2 2 0 012 2v6L10 22 2.5 14.5 11.5 4.5z" />
+      <circle cx="15.5" cy="8.5" r="1.5" />
+    </svg>
+  );
+}

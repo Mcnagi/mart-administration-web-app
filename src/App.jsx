@@ -8,6 +8,9 @@ import ItemsPage from './pages/ItemsPage';
 import ItemFormPage from './pages/ItemFormPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AccountPage from './pages/AccountPage';
+import PromoLibraryPage from './pages/PromoLibraryPage';
+import PromoBuilderPage from './pages/PromoBuilderPage';
+import PromoPrintPage from './pages/PromoPrintPage';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function AppLayout() {
@@ -23,6 +26,10 @@ function AppLayout() {
               <Route path="/" element={<ItemsPage />} />
               <Route path="/add" element={<ItemFormPage />} />
               <Route path="/edit/:itemId" element={<ItemFormPage />} />
+              <Route path="/promos" element={<PromoLibraryPage />} />
+              <Route path="/promos/new" element={<PromoBuilderPage />} />
+              <Route path="/promos/print" element={<PromoPrintPage />} />
+              <Route path="/promos/:promoId/edit" element={<PromoBuilderPage />} />
               <Route path="/account" element={<AccountPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<AdminUsersPage />} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import { saveItem, removeItem } from '../services/itemService';
@@ -134,6 +134,11 @@ export default function ItemFormPage() {
           {uploaderName && uploadedAt && ' · '}
           {uploadedAt && t('itemForm.uploadedOn', { date: uploadedAt.toLocaleDateString(language) })}
         </div>
+      )}
+      {isEditing && (
+        <Link to={`/promos/new?fromItem=${itemId}`} className="btn-outline create-promo-link">
+          {t('itemForm.createPromo')}
+        </Link>
       )}
       <form className="item-form" onSubmit={handleSubmit}>
         <label>

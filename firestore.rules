@@ -63,6 +63,15 @@ service cloud.firestore {
       allow update, delete: if isActive();
     }
 
+    // Shared promo library: same access model as items — any active user
+    // can see and manage every promo, since promos are shared marketing
+    // material, not owned by whoever created them.
+    match /promos/{promoId} {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isActive();
+    }
+
     // Append-only audit trail of every items/users read+write and auth
     // event (see api/logsApi.js). Any signed-in user can write their own
     // entries — deliberately signedIn() rather than isActive(), so actions
