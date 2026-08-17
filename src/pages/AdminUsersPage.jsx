@@ -1,22 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import * as userService from '../services/userService';
-import { importExcelData } from '../services/dataService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CreateUserForm from '../components/admin/CreateUserForm';
+import ImportDataForm from '../components/admin/ImportDataForm';
+import UserList from '../components/admin/UserList';
 
 export default function AdminUsersPage() {
-  const { user, profile: currentProfile } = useAuth();
+  const { profile: currentProfile } = useAuth();
   const { t } = useTranslation();
   const [users, setUsers] = useState(null);
   const [error, setError] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createdCredential, setCreatedCredential] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState('');
-  const [importSummary, setImportSummary] = useState(null);
-  const importInputRef = useRef(null);
 
   async function refresh() {
     const list = await userService.listUsers();
@@ -28,158 +23,19 @@ export default function AdminUsersPage() {
     refresh().catch((err) => setError(err.message || t('admin.errorLoadUsers')));
   }, []);
 
-  async function handleCreate(e) {
-    e.preventDefault();
-    setError('');
-    setCreating(true);
-    setCreatedCredential(null);
-    try {
-      const { tempPassword } = await userService.createUser(newEmail);
-      setCreatedCredential({ email: newEmail.trim().toLowerCase(), tempPassword });
-      setNewEmail('');
-      await refresh();
-    } catch (err) {
-      setError(err.message || t('admin.errorCreateUser'));
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleToggleAdmin(u) {
-    setError('');
-    try {
-      await userService.setAdminRole(u.uid, u.role !== 'admin', users);
-      await refresh();
-    } catch (err) {
-      setError(err.message || t('admin.errorUpdateAdminRole'));
-    }
-  }
-
-  async function handleToggleDisabled(u) {
-    setError('');
-    try {
-      await userService.setDisabled(u.uid, !u.disabled);
-      await refresh();
-    } catch (err) {
-      setError(err.message || t('admin.errorUpdateUser'));
-    }
-  }
-
-  async function handleRevoke(u) {
-    if (!confirm(t('admin.confirmRevoke', { email: u.email }))) return;
-    setError('');
-    try {
-      await userService.revokeUser(u.uid);
-      await refresh();
-    } catch (err) {
-      setError(err.message || t('admin.errorRemoveUser'));
-    }
-  }
-
-  async function handleImportFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportError('');
-    setImportSummary(null);
-    setImporting(true);
-    try {
-      const summary = await importExcelData(file, user.uid);
-      setImportSummary(summary);
-    } catch (err) {
-      setImportError(err.message || t('admin.errorImport'));
-    } finally {
-      setImporting(false);
-      if (importInputRef.current) importInputRef.current.value = '';
-    }
-  }
-
   if (users === null) return <LoadingSpinner />;
 
   return (
     <div className="page">
       <h2>{t('admin.title')}</h2>
 
-      <form className="item-form" onSubmit={handleCreate}>
-        <label>
-          {t('admin.newUserEmail')}
-          <input
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            required
-          />
-        </label>
-        <button type="submit" className="btn-primary" disabled={creating}>
-          {creating ? t('admin.creating') : t('admin.createAccount')}
-        </button>
-      </form>
-
-      {createdCredential && (
-        <div className="callout">
-          {t('admin.accountCreatedFor')} <strong>{createdCredential.email}</strong>.
-          <br />
-          {t('admin.tempPassword')} <code>{createdCredential.tempPassword}</code>
-          <br />
-          {t('admin.shareNote')}
-        </div>
-      )}
+      <CreateUserForm onCreated={refresh} />
 
       {error && <div className="form-error">{error}</div>}
 
-      <div className="item-form">
-        <h3>{t('admin.importTitle')}</h3>
-        <p className="import-hint">{t('admin.importHint')}</p>
-        <label>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleImportFile}
-            disabled={importing}
-          />
-        </label>
-        {importing && <LoadingSpinner />}
-        {importSummary && (
-          <div className="callout">
-            {t('admin.importSummary', {
-              created: importSummary.created,
-              updated: importSummary.updated,
-              skipped: importSummary.skipped,
-            })}
-          </div>
-        )}
-        {importError && <div className="form-error">{importError}</div>}
-      </div>
+      <ImportDataForm />
 
-      <ul className="user-list">
-        {users.map((u) => (
-          <li key={u.uid} className="user-row">
-            <div className="user-row-info">
-              <span className="user-email">{u.email}</span>
-              <span className={`badge ${u.role === 'admin' ? 'badge-ok' : 'badge-none'}`}>
-                {u.role === 'admin' ? t('admin.adminBadge') : t('admin.userBadge')}
-              </span>
-              {u.branch && <span className="badge badge-none">{u.branch}</span>}
-              {u.disabled && <span className="badge badge-expired">{t('admin.disabledBadge')}</span>}
-            </div>
-            <div className="user-row-actions">
-              <button className="btn-link" onClick={() => handleToggleAdmin(u)}>
-                {u.role === 'admin' ? t('admin.demote') : t('admin.makeAdmin')}
-              </button>
-              <button className="btn-link" onClick={() => handleToggleDisabled(u)}>
-                {u.disabled ? t('admin.enable') : t('admin.disable')}
-              </button>
-              <button
-                className="btn-link btn-link-danger"
-                onClick={() => handleRevoke(u)}
-                disabled={u.uid === currentProfile.uid}
-              >
-                {t('admin.delete')}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <UserList users={users} currentUid={currentProfile.uid} onChanged={refresh} />
     </div>
   );
 }
