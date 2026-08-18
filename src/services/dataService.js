@@ -31,16 +31,19 @@ function normalizeCellValue(value) {
   return value ?? '';
 }
 
-// Reads an .xlsx file (first sheet), maps its header row to fields, and
-// upserts each row into the `data` collection keyed by its `barcode` column
-// so re-importing the same file updates existing rows rather than
-// duplicating them. Rows without a barcode are skipped and counted, not
-// errored, since a stray blank row in an exported sheet is the common case,
-// not a mistake.
-export async function importExcelData(file, ownerId) {
-  const { readSheet } = await import('read-excel-file/browser');
-  const sheet = await readSheet(file);
-  if (!sheet || sheet.length < 2) {
+// Reads an .xlsx or legacy .xls file (first sheet), maps its header row to
+// fields, and upserts each row into the `data` collection keyed by its
+// `barcode` column so re-importing the same file updates existing rows
+// rather than duplicating them. Rows without a barcode are skipped and
+// counted, not errored, since a stray blank row in an exported sheet is the
+// common case, not a mistake.
+export async function importExcelData(file) {
+  const XLSX = await import('@e965/xlsx');
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const sheet = worksheet ? XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) : [];
+  if (sheet.length < 2) {
     throw new Error(t('errors.importEmpty'));
   }
 
@@ -72,6 +75,6 @@ export async function importExcelData(file, ownerId) {
     throw new Error(t('errors.importNoValidRows'));
   }
 
-  await dataApi.upsertRowsByBarcode(rows, ownerId);
+  await dataApi.upsertRowsByBarcode(rows);
   return { imported: rows.length, skipped };
 }

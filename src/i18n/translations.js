@@ -200,7 +200,7 @@ export const translations = {
       confirmRevoke: "Remove {email}'s access? This cannot be undone from here.",
       importTitle: 'Import items',
       importHint:
-        'Upload an .xlsx file with a header row. A "Barcode" column is required — it\'s used as each item\'s ID, so re-uploading the same barcode updates that item instead of duplicating it. Other column headers (Name, Quantity, Expiry Date, Category, Branch, Note, …) are matched to item fields automatically.',
+        'Upload an .xlsx or .xls file with a header row. A "Barcode" column is required — it\'s used as each item\'s ID, so re-uploading the same barcode updates that item instead of duplicating it. Other column headers (Name, Quantity, Expiry Date, Category, Branch, Note, …) are matched to item fields automatically.',
       importButton: 'Import',
       importing: 'Importing…',
       importSummary: 'Imported {imported} row(s), skipped {skipped} without a barcode.',
@@ -421,7 +421,7 @@ export const translations = {
       confirmRevoke: '{email}의 접근 권한을 삭제하시겠습니까? 이 작업은 여기서 되돌릴 수 없습니다.',
       importTitle: '품목 일괄 등록',
       importHint:
-        '머리글 행이 있는 .xlsx 파일을 업로드하세요. "Barcode" 열은 필수이며 각 품목의 ID로 사용되므로, 같은 바코드를 다시 업로드하면 중복 생성 대신 기존 품목이 갱신됩니다. 다른 열 이름(Name, Quantity, Expiry Date, Category, Branch, Note 등)은 자동으로 품목 필드에 매칭됩니다.',
+        '머리글 행이 있는 .xlsx 또는 .xls 파일을 업로드하세요. "Barcode" 열은 필수이며 각 품목의 ID로 사용되므로, 같은 바코드를 다시 업로드하면 중복 생성 대신 기존 품목이 갱신됩니다. 다른 열 이름(Name, Quantity, Expiry Date, Category, Branch, Note 등)은 자동으로 품목 필드에 매칭됩니다.',
       importButton: '가져오기',
       importing: '가져오는 중…',
       importSummary: '{imported}개 행을 가져왔고, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',

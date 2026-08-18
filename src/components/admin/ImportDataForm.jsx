@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/LanguageContext';
 import { importExcelData } from '../../services/dataService';
 import LoadingSpinner from '../LoadingSpinner';
 
 export default function ImportDataForm() {
-  const { user } = useAuth();
   const { t } = useTranslation();
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
@@ -19,7 +17,7 @@ export default function ImportDataForm() {
     setImportSummary(null);
     setImporting(true);
     try {
-      const summary = await importExcelData(file, user.uid);
+      const summary = await importExcelData(file);
       setImportSummary(summary);
     } catch (err) {
       setImportError(err.message || t('admin.errorImport'));
@@ -34,7 +32,7 @@ export default function ImportDataForm() {
       <h3>{t('admin.importTitle')}</h3>
       <p className="import-hint">{t('admin.importHint')}</p>
       <label>
-        <input ref={importInputRef} type="file" accept=".xlsx" onChange={handleImportFile} disabled={importing} />
+        <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportFile} disabled={importing} />
       </label>
       {importing && <LoadingSpinner />}
       {importSummary && (

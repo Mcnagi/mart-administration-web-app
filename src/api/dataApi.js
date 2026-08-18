@@ -12,17 +12,15 @@ const dataCol = collection(db, 'data');
 // duplicate. Writes go straight through with `merge: true` and no
 // existence check first, so a large `data` collection doesn't cost a full
 // read on every import — at the cost of not being able to tell new rows
-// from updated ones, and `ownerId`/`updatedAt` reflecting the most recent
-// importer rather than the original one. Chunked at 500 since Firestore
-// batches cap there and a real product catalog can easily exceed a manual
-// multi-select.
-export async function upsertRowsByBarcode(rows, ownerId) {
+// from updated ones. Chunked at 500 since Firestore batches cap there and a
+// real product catalog can easily exceed a manual multi-select.
+export async function upsertRowsByBarcode(rows) {
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
     const batch = writeBatch(db);
     chunk.forEach(({ barcode, ...fields }) => {
       const ref = doc(dataCol, barcode);
-      batch.set(ref, { ...fields, barcode, ownerId, updatedAt: serverTimestamp() }, { merge: true });
+      batch.set(ref, { ...fields, barcode, updatedAt: serverTimestamp() }, { merge: true });
     });
     await batch.commit();
   }
