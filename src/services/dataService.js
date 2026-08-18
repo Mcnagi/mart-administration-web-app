@@ -39,6 +39,14 @@ function normalizeCellValue(value) {
 // common case, not a mistake.
 export async function importExcelData(file) {
   const XLSX = await import('@e965/xlsx');
+  // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
+  // encoding rather than UTF-16 — without registering the codepage table,
+  // xlsx falls back to the wrong decoding and non-Latin text (e.g. Korean
+  // product names) comes out as mojibake, which then gets written to
+  // Firestore as-is. .xlsx files are unaffected (already UTF-8 in
+  // sharedStrings.xml), so this only matters for the legacy format.
+  const cptable = await import('@e965/xlsx/dist/cpexcel.full.mjs');
+  XLSX.set_cptable(cptable);
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: 'array', cellDates: true });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
