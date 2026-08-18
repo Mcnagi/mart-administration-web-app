@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CreateUserForm from '../components/admin/CreateUserForm';
 import ImportDataForm from '../components/admin/ImportDataForm';
 import UserList from '../components/admin/UserList';
+import { scheduleIdle } from '../utils/idleSchedule';
 
 export default function AdminUsersPage() {
   const { profile: currentProfile } = useAuth();
@@ -20,7 +21,20 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    refresh().catch((err) => setError(err.message || t('admin.errorLoadUsers')));
+    // Deferred to idle time so React StrictMode's dev-only double
+    // mount/cleanup/mount can cancel the first mount's scheduled fetch
+    // before it starts a real read — see utils/idleSchedule.js.
+    let cancelled = false;
+    const cancelIdle = scheduleIdle(() => {
+      if (cancelled) return;
+      refresh().catch((err) => {
+        if (!cancelled) setError(err.message || t('admin.errorLoadUsers'));
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
   }, []);
 
   if (users === null) return <LoadingSpinner />;

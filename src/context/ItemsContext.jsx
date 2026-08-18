@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { subscribeItems } from '../services/itemService';
 import { useTranslation } from './LanguageContext';
+import { scheduleIdle } from '../utils/idleSchedule';
 
 // Subscribes once per signed-in session, not per page visit, so navigating
 // between nav tabs (Items <-> Promos <-> Account) doesn't tear down and
@@ -27,12 +28,9 @@ export function ItemsProvider({ children }) {
     // and main-thread time — the page shell paints first, items arrive
     // shortly after. Falls back to a macrotask on browsers without
     // requestIdleCallback (Safari).
-    const schedule = window.requestIdleCallback || ((fn) => setTimeout(fn, 0));
-    const cancelSchedule = window.cancelIdleCallback || clearTimeout;
-
     let unsubscribe = null;
     let cancelled = false;
-    const handle = schedule(() => {
+    const cancelIdle = scheduleIdle(() => {
       if (cancelled) return;
       unsubscribe = subscribeItems(
         (data) => setItems(data),
@@ -42,7 +40,7 @@ export function ItemsProvider({ children }) {
 
     return () => {
       cancelled = true;
-      cancelSchedule(handle);
+      cancelIdle();
       if (unsubscribe) unsubscribe();
     };
   }, [user, t]);
