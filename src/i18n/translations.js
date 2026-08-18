@@ -211,6 +211,10 @@ export const translations = {
       importing: 'Importing…',
       importSummary: 'Imported {imported} row(s), skipped {skipped} without a barcode.',
       errorImport: 'Import failed.',
+      parsing: 'Reading file…',
+      previewTitle: 'Preview',
+      totalRows: 'Total rows: {total}',
+      cancel: 'Cancel',
     },
     common: {
       loading: 'Loading',
@@ -438,6 +442,10 @@ export const translations = {
       importing: '가져오는 중…',
       importSummary: '{imported}개 행을 가져왔고, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',
       errorImport: '가져오기에 실패했습니다.',
+      parsing: '파일 읽는 중…',
+      previewTitle: '미리보기',
+      totalRows: '전체 행: {total}개',
+      cancel: '취소',
     },
     common: {
       loading: '로딩 중',

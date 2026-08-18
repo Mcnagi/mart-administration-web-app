@@ -576,6 +576,40 @@ textarea:focus {
   margin: -8px 0 0;
 }
 
+.import-preview h4 {
+  margin: 0;
+}
+
+.import-preview-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.import-preview-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.import-preview-table th,
+.import-preview-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.import-preview-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--surface);
+}
+
+.import-preview-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .barcode-input-row {
   display: flex;
   flex-wrap: wrap;

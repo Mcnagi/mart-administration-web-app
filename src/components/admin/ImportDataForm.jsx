@@ -1,30 +1,57 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { importExcelData } from '../../services/dataService';
+import { parseExcelFile, uploadParsedRows } from '../../services/dataService';
 import LoadingSpinner from '../LoadingSpinner';
+
+const PREVIEW_ROW_COUNT = 5;
 
 export default function ImportDataForm() {
   const { t } = useTranslation();
-  const [importing, setImporting] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [parsed, setParsed] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [importError, setImportError] = useState('');
   const [importSummary, setImportSummary] = useState(null);
   const importInputRef = useRef(null);
 
-  async function handleImportFile(e) {
+  async function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportError('');
     setImportSummary(null);
-    setImporting(true);
+    setParsed(null);
+    setParsing(true);
     try {
-      const summary = await importExcelData(file);
-      setImportSummary(summary);
+      const result = await parseExcelFile(file);
+      setParsed(result);
+    } catch (err) {
+      setImportError(err.message || t('admin.errorImport'));
+      if (importInputRef.current) importInputRef.current.value = '';
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (!parsed) return;
+    setImportError('');
+    setUploading(true);
+    try {
+      const { imported } = await uploadParsedRows(parsed.rows);
+      setImportSummary({ imported, skipped: parsed.skipped });
+      setParsed(null);
+      if (importInputRef.current) importInputRef.current.value = '';
     } catch (err) {
       setImportError(err.message || t('admin.errorImport'));
     } finally {
-      setImporting(false);
-      if (importInputRef.current) importInputRef.current.value = '';
+      setUploading(false);
     }
+  }
+
+  function handleCancel() {
+    setParsed(null);
+    setImportError('');
+    if (importInputRef.current) importInputRef.current.value = '';
   }
 
   return (
@@ -36,11 +63,47 @@ export default function ImportDataForm() {
           ref={importInputRef}
           type="file"
           accept=".xlsx,.xls,.csv,.tsv,.txt"
-          onChange={handleImportFile}
-          disabled={importing}
+          onChange={handleFileChange}
+          disabled={parsing || uploading}
         />
       </label>
-      {importing && <LoadingSpinner />}
+      {parsing && <LoadingSpinner />}
+      {parsed && (
+        <div className="import-preview">
+          <h4>{t('admin.previewTitle')}</h4>
+          <p className="import-hint">
+            {t('admin.totalRows', { total: parsed.totalRows })}
+          </p>
+          <div className="import-preview-table-wrap">
+            <table className="import-preview-table">
+              <thead>
+                <tr>
+                  {parsed.columns.map((c) => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {parsed.rows.slice(0, PREVIEW_ROW_COUNT).map((row, i) => (
+                  <tr key={i}>
+                    {parsed.columns.map((c) => (
+                      <td key={c.key}>{row[c.key] ?? ''}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn-primary" onClick={handleUpload} disabled={uploading}>
+              {uploading ? t('admin.importing') : t('admin.importButton')}
+            </button>
+            <button type="button" className="btn-outline" onClick={handleCancel} disabled={uploading}>
+              {t('admin.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
       {importSummary && (
         <div className="callout">
           {t('admin.importSummary', {

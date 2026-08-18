@@ -21,13 +21,20 @@ function normalizeCellValue(value, cptable) {
   return value ?? '';
 }
 
-// Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet), maps its
-// header row to fields, and upserts each row into the `data` collection
-// keyed by its `barcode` column so re-importing the same file updates
-// existing rows rather than duplicating them. Rows without a barcode are
-// skipped and counted, not errored, since a stray blank row in an exported
-// sheet is the common case, not a mistake.
-export async function importExcelData(file) {
+// Only these columns are pulled from the source file into the `data`
+// collection — anything else present in the sheet (extra columns some
+// exports include) is ignored. Order here is also the display order for
+// the import preview table.
+const ALLOWED_FIELD_KEYS = ['barcode', 'product', 'product2', 'class1', 'class2', 'class3', 'maker'];
+
+// Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet) and maps
+// its header row to fields, deduped by `barcode` (re-importing the same
+// file will update existing rows rather than duplicate them once uploaded).
+// Rows without a barcode are skipped and counted, not errored, since a
+// stray blank row in an exported sheet is the common case, not a mistake.
+// Does not write anything — see uploadParsedRows for that, so the caller
+// can show a preview and let the admin confirm before anything is written.
+export async function parseExcelFile(file) {
   const XLSX = await import('@e965/xlsx');
   // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
   // encoding rather than UTF-16 — without registering the codepage table,
@@ -57,6 +64,12 @@ export async function importExcelData(file) {
     throw new Error(t('errors.importNoBarcodeColumn'));
   }
 
+  // Only the columns in ALLOWED_FIELD_KEYS that are actually present in this
+  // file, in that fixed order — so the preview table and the uploaded
+  // fields always match regardless of what other columns the file has.
+  const columns = ALLOWED_FIELD_KEYS.map((key) => ({ key, index: keys.indexOf(key) }))
+    .filter(({ index }) => index !== -1)
+    .map(({ key, index }) => ({ key, index, label: headerRow[index] }));
   const rowsByBarcode = new Map();
   let skipped = 0;
   dataRows.forEach((row) => {
@@ -66,9 +79,9 @@ export async function importExcelData(file) {
       return;
     }
     const fields = { barcode };
-    keys.forEach((key, i) => {
-      if (!key || key === 'barcode') return;
-      fields[key] = normalizeCellValue(row[i], cptable);
+    columns.forEach(({ key, index }) => {
+      if (key === 'barcode') return;
+      fields[key] = normalizeCellValue(row[index], cptable);
     });
     rowsByBarcode.set(barcode, fields);
   });
@@ -78,6 +91,12 @@ export async function importExcelData(file) {
     throw new Error(t('errors.importNoValidRows'));
   }
 
+  return { columns, rows, totalRows: dataRows.length, skipped };
+}
+
+// Writes previously parsed rows (see parseExcelFile) to the `data`
+// collection, keyed by barcode.
+export async function uploadParsedRows(rows) {
   await dataApi.upsertRowsByBarcode(rows);
-  return { imported: rows.length, skipped };
+  return { imported: rows.length };
 }
