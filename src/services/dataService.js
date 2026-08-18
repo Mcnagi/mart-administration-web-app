@@ -5,17 +5,7 @@
 // directly.
 import * as dataApi from '../api/dataApi';
 import { t } from '../i18n/i18n';
-
-// Converts a spreadsheet column header into the camelCase field name used
-// throughout this app (e.g. "Expiry Date" -> "expiryDate", "Barcode" ->
-// "barcode"), so common headers land on the same keys other item fields use,
-// while unrecognized headers still come through as fields.
-function headerToFieldKey(header) {
-  return String(header)
-    .trim()
-    .replace(/[^a-zA-Z0-9]+(.)?/g, (_, chr) => (chr ? chr.toUpperCase() : ''))
-    .replace(/^[A-Z]/, (chr) => chr.toLowerCase());
-}
+import { isBinarySpreadsheet, decodeTextFile, fixMojibake, headerToFieldKey } from '../utils/spreadsheetEncoding';
 
 // Spreadsheet libraries hand back date cells as JS Date objects built from
 // UTC parts (no timezone in a date cell), so this must read UTC parts back
@@ -25,51 +15,10 @@ function excelDateToIsoString(date) {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
-function normalizeCellValue(value) {
+function normalizeCellValue(value, cptable) {
   if (value instanceof Date) return excelDateToIsoString(value);
-  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'string') return fixMojibake(value.trim(), cptable);
   return value ?? '';
-}
-
-// BIFF "BOF" (Beginning Of File) record IDs across versions — 0x0009 (BIFF2),
-// 0x0209 (BIFF3), 0x0409 (BIFF4), 0x0809 (BIFF5/BIFF7, and raw BIFF8). Some
-// export tools (common from older DB/SQL "export to Excel" features) write
-// this record directly as the first bytes of the file, skipping the OLE2
-// container that Excel 97+ normally wraps .xls files in.
-const BIFF_BOF_RECORD_IDS = new Set([0x0009, 0x0209, 0x0409, 0x0809]);
-
-// True for the binary spreadsheet formats (.xlsx is a zip, "PK\x03\x04...";
-// legacy .xls is an OLE compound file, or a raw BIFF stream without that
-// wrapper), identified by magic bytes rather than the file's extension/name,
-// which can't be trusted — e.g. a CSV exported from a SQL tool and saved
-// with an ".xls" extension is still just text underneath.
-function isBinarySpreadsheet(bytes) {
-  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b) return true; // xlsx (zip)
-  if (bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
-    return true; // legacy xls (OLE compound file)
-  }
-  if (bytes.length >= 2 && BIFF_BOF_RECORD_IDS.has(bytes[0] | (bytes[1] << 8))) {
-    return true; // raw BIFF stream (pre-OLE2 export)
-  }
-  return false;
-}
-
-// Decodes a plain-text export (CSV/TSV) to a JS string, honoring a BOM when
-// present. Many SQL client "export results" features default to UTF-16 —
-// without sniffing the BOM, that text gets misread as UTF-8/ASCII and every
-// non-Latin character (and often the byte pairs around plain ASCII headers
-// too) turns into replacement characters before parsing ever sees it.
-function decodeTextFile(bytes) {
-  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-    return new TextDecoder('utf-16le').decode(bytes.subarray(2));
-  }
-  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-    return new TextDecoder('utf-16be').decode(bytes.subarray(2));
-  }
-  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return new TextDecoder('utf-8').decode(bytes.subarray(3));
-  }
-  return new TextDecoder('utf-8').decode(bytes);
 }
 
 // Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet), maps its
@@ -85,7 +34,9 @@ export async function importExcelData(file) {
   // xlsx falls back to the wrong decoding and non-Latin text (e.g. Korean
   // product names) comes out as mojibake, which then gets written to
   // Firestore as-is. .xlsx files are unaffected (already UTF-8 in
-  // sharedStrings.xml), so this only matters for the legacy format.
+  // sharedStrings.xml), so this only matters for the legacy format. It's
+  // also used by fixMojibake below, for files whose own CODEPAGE record is
+  // simply wrong (declares Latin-1 while the bytes are actually CP949).
   const cptable = await import('@e965/xlsx/dist/cpexcel.full.mjs');
   XLSX.set_cptable(cptable);
   const buffer = await file.arrayBuffer();
@@ -109,7 +60,7 @@ export async function importExcelData(file) {
   const rowsByBarcode = new Map();
   let skipped = 0;
   dataRows.forEach((row) => {
-    const barcode = String(normalizeCellValue(row[barcodeIndex])).trim();
+    const barcode = String(normalizeCellValue(row[barcodeIndex], cptable)).trim();
     if (!barcode) {
       skipped += 1;
       return;
@@ -117,7 +68,7 @@ export async function importExcelData(file) {
     const fields = { barcode };
     keys.forEach((key, i) => {
       if (!key || key === 'barcode') return;
-      fields[key] = normalizeCellValue(row[i]);
+      fields[key] = normalizeCellValue(row[i], cptable);
     });
     rowsByBarcode.set(barcode, fields);
   });
