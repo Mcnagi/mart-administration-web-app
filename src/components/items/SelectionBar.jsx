@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { applyDiscount, removeItems } from '../../services/itemService';
 
-export default function SelectionBar({ selectedIds, onItemsChanged, onClearSelection }) {
+export default function SelectionBar({ selectedIds, onClearSelection }) {
   const { t } = useTranslation();
   const [customPercent, setCustomPercent] = useState('');
   const [busy, setBusy] = useState(false);
@@ -14,7 +14,6 @@ export default function SelectionBar({ selectedIds, onItemsChanged, onClearSelec
     setBusy(true);
     try {
       await action();
-      await onItemsChanged();
       onClearSelection();
       setCustomPercent('');
     } catch (err) {

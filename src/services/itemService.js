@@ -97,6 +97,12 @@ export function fetchItems() {
   return itemsApi.listItems();
 }
 
+// Live view of the items list; see itemsApi.subscribeItems for why this
+// replaces a poll/reload cycle. Returns the unsubscribe function.
+export function subscribeItems(onData, onError) {
+  return itemsApi.subscribeItems(onData, onError);
+}
+
 // `input` may include a raw File under `photoFile`; every field is optional.
 export async function saveItem(
   { id, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },

@@ -7,6 +7,7 @@ import {
   deleteDoc,
   collection,
   getDocs,
+  onSnapshot,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -22,6 +23,24 @@ export async function listItems() {
   const snap = await getDocs(itemsCol);
   writeLog('read', { action: 'list', collectionName: 'items' });
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Live view of the items collection, for the main list page. Firestore
+// pushes an initial snapshot from local cache (if any) immediately, then
+// again whenever any client's write is acknowledged — so the shared
+// inventory (README: any user can add/edit/delete any item) stays in sync
+// across everyone's screens without manual reloads. Returns the unsubscribe
+// function; callers must invoke it on unmount to stop the listener.
+//
+// Logged once, at subscribe time, not per update — logging on every
+// snapshot would mean a 'logs' write from every open client on every
+// change anywhere in the collection, multiplying write volume against the
+// Spark plan's free quota.
+export function subscribeItems(onData, onError) {
+  writeLog('read', { action: 'subscribe', collectionName: 'items' });
+  return onSnapshot(itemsCol, (snap) => {
+    onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }, onError);
 }
 
 export async function createItem(item, ownerId) {
