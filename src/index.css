@@ -578,6 +578,7 @@ textarea:focus {
 
 .barcode-input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -596,6 +597,29 @@ textarea:focus {
 .barcode-scan-btn svg {
   width: 18px;
   height: 18px;
+}
+
+.search-status {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.search-product-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.search-product-name-label {
+  color: var(--text-muted);
+}
+
+.search-product-line {
+  color: var(--text-h);
+  font-weight: 500;
 }
 
 .barcode-scanner-overlay {

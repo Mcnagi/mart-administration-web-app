@@ -116,16 +116,24 @@ export async function saveItem(
     photoBase64 = await fileToCompressedBase64(photoFile);
   }
 
+  const trimmedBarcode = (barcode ?? '').trim();
+
   const payload = {
-    name: (name ?? '').trim(),
     quantity: quantity === '' || quantity === undefined || quantity === null ? '' : Number(quantity),
     expiryDate: expiryDate ?? '',
     branch: branch ?? '',
-    category: (category ?? '').trim(),
     note: (note ?? '').trim(),
-    barcode: (barcode ?? '').trim(),
+    barcode: trimmedBarcode,
     photoBase64,
   };
+
+  // A barcode identifies the product via the `data` collection lookup, so
+  // name/category (already shown from that lookup) aren't duplicated onto
+  // the item itself.
+  if (!trimmedBarcode) {
+    payload.name = (name ?? '').trim();
+    payload.category = (category ?? '').trim();
+  }
 
   if (id) {
     await itemsApi.updateItem(id, payload);

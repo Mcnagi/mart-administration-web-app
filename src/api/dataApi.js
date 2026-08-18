@@ -1,11 +1,20 @@
 // Raw Firestore calls for the `data` collection: rows from admin Excel
 // imports, kept separate from the curated, user-facing `items` inventory in
 // api/itemsApi.js — see services/dataService.js for the import logic.
-import { doc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseClient';
 import { writeLog } from './logsApi';
 
 const dataCol = collection(db, 'data');
+
+// Looks up a single imported row by its barcode (the doc ID in this
+// collection — see upsertRowsByBarcode below), for the item form's barcode
+// search. Returns null when no row matches.
+export async function getDataByBarcode(barcode) {
+  const snap = await getDoc(doc(dataCol, barcode));
+  writeLog('read', { action: 'get', collectionName: 'data', docId: barcode });
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
 
 // Each row is keyed by `barcode`, used as the doc ID instead of an auto ID
 // so re-importing the same product updates it rather than creating a

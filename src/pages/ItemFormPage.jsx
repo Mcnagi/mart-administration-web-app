@@ -5,6 +5,7 @@ import { useTranslation } from '../context/LanguageContext';
 import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import * as usersApi from '../api/usersApi';
+import { getDataByBarcode } from '../api/dataApi';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon, BarcodeIcon } from '../components/icons';
@@ -29,6 +30,10 @@ export default function ItemFormPage() {
   const [note, setNote] = useState('');
   const [barcode, setBarcode] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState(null);
+  const [searchStatus, setSearchStatus] = useState('');
+  const [searchErrorMessage, setSearchErrorMessage] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -101,6 +106,38 @@ export default function ItemFormPage() {
     setScanning(false);
   }
 
+  async function handleSearch() {
+    const trimmed = barcode.trim();
+    if (!trimmed) return;
+    setSearching(true);
+    setSearchResult(null);
+    setSearchStatus('');
+    setSearchErrorMessage('');
+    try {
+      const result = await getDataByBarcode(trimmed);
+      if (result) {
+        setSearchResult(result);
+        setCategory([result.class1, result.class2, result.class3].filter(Boolean).join('-'));
+        setSearchStatus('found');
+      } else {
+        setSearchStatus('notFound');
+      }
+    } catch (err) {
+      setSearchStatus('error');
+      setSearchErrorMessage(err.message || '');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function handleClearSearch() {
+    setBarcode('');
+    setSearchResult(null);
+    setSearchStatus('');
+    setSearchErrorMessage('');
+    setCategory('');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -166,8 +203,31 @@ export default function ItemFormPage() {
               <BarcodeIcon />
               {t('itemForm.scan')}
             </button>
+            <button
+              type="button"
+              className="btn-outline barcode-scan-btn"
+              onClick={handleSearch}
+              disabled={!barcode.trim() || searching}
+            >
+              {searching ? t('itemForm.searching') : t('itemForm.search')}
+            </button>
+            <button
+              type="button"
+              className="btn-outline barcode-scan-btn"
+              onClick={handleClearSearch}
+              disabled={!barcode && !searchResult && !searchStatus}
+            >
+              {t('itemForm.clearSearch')}
+            </button>
           </div>
         </label>
+        {searchStatus && (
+          <p className="search-status">
+            {searchStatus === 'found' && t('itemForm.searchFound')}
+            {searchStatus === 'notFound' && t('itemForm.searchNotFound')}
+            {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
+          </p>
+        )}
         <label>
           {t('itemForm.photo')}
           <input type="file" accept="image/*" onChange={handlePhotoChange} />
@@ -177,15 +237,29 @@ export default function ItemFormPage() {
             <img src={previewUrl} alt={t('itemForm.previewAlt')} />
           </div>
         )}
-        <label>
-          {t('itemForm.name')}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t('itemForm.namePlaceholder')}
-          />
-        </label>
+        {searchResult ? (
+          <div className="search-product-name">
+            <span className="search-product-name-label">{t('itemForm.name')}</span>
+            <span className="search-product-line">{searchResult.product || ''}</span>
+            <span className="search-product-line">{searchResult.product2 || ''}</span>
+            {category && (
+              <>
+                <span className="search-product-name-label">{t('itemForm.category')}</span>
+                <span className="search-product-line">{category}</span>
+              </>
+            )}
+          </div>
+        ) : (
+          <label>
+            {t('itemForm.name')}
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('itemForm.namePlaceholder')}
+            />
+          </label>
+        )}
         <label>
           {t('itemForm.quantity')}
           <input
@@ -201,15 +275,17 @@ export default function ItemFormPage() {
           {t('itemForm.expiryDate')}
           <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
         </label>
-        <label>
-          {t('itemForm.category')}
-          <input
-            type="text"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder={t('itemForm.categoryPlaceholder')}
-          />
-        </label>
+        {!searchResult && (
+          <label>
+            {t('itemForm.category')}
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder={t('itemForm.categoryPlaceholder')}
+            />
+          </label>
+        )}
         <label>
           {t('itemForm.note')}
           <textarea
