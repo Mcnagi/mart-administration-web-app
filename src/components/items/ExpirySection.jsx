@@ -1,6 +1,6 @@
 import { useSelection } from '../../context/SelectionContext';
 import { useTranslation } from '../../context/LanguageContext';
-import ItemCard from '../ItemCard';
+import ItemCard from './ItemCard';
 
 export default function ExpirySection({ section, showHeading, selectedIds, onToggleSelect }) {
   const { selecting } = useSelection();

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import ExpiryBadge from './ExpiryBadge';
-import { discountTier } from '../services/itemService';
-import { useTranslation } from '../context/LanguageContext';
+import { discountTier } from '../../services/itemService';
+import { useTranslation } from '../../context/LanguageContext';
 
 export default function ItemCard({ item, selectable = false, selected = false, onToggleSelect }) {
   const { t } = useTranslation();

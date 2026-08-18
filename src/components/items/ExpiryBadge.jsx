@@ -1,5 +1,5 @@
-import { daysUntilExpiry, expiryBucket } from '../services/itemService';
-import { useTranslation } from '../context/LanguageContext';
+import { daysUntilExpiry, expiryBucket } from '../../services/itemService';
+import { useTranslation } from '../../context/LanguageContext';
 
 export default function ExpiryBadge({ expiryDate }) {
   const { t } = useTranslation();
