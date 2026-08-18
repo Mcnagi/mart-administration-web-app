@@ -56,8 +56,17 @@ export async function changePassword(currentPassword, newPassword) {
 
 // Wires Firebase's auth-state stream together with the Firestore profile
 // lookup so callers get one combined { user, profile } state.
+//
+// Guarded with a `stopped` flag rather than relying on Firebase to stop
+// calling back once unsubscribed: onAuthStateChanged's queued initial event
+// can still land on an already-unsubscribed listener (observed under React
+// StrictMode's dev-only double mount/cleanup/mount of effects), which would
+// otherwise trigger a second profile fetch — and its log entry — for the
+// same sign-in.
 export function subscribeToSession(onChange) {
-  return authApi.subscribeToAuthState(async (firebaseUser) => {
+  let stopped = false;
+  const unsubscribe = authApi.subscribeToAuthState(async (firebaseUser) => {
+    if (stopped) return;
     if (!firebaseUser) {
       onChange({ user: null, profile: null });
       return;
@@ -68,6 +77,7 @@ export function subscribeToSession(onChange) {
     } catch {
       profile = null;
     }
+    if (stopped) return;
     if (!profile || profile.disabled) {
       await authApi.signOutCurrentUser();
       onChange({ user: null, profile: null });
@@ -75,4 +85,8 @@ export function subscribeToSession(onChange) {
     }
     onChange({ user: firebaseUser, profile });
   });
+  return () => {
+    stopped = true;
+    unsubscribe();
+  };
 }
