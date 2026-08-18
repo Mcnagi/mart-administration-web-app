@@ -25,15 +25,18 @@ function normalizeCellValue(value, cptable) {
 // collection — anything else present in the sheet (extra columns some
 // exports include) is ignored. Order here is also the display order for
 // the import preview table.
-const ALLOWED_FIELD_KEYS = ['barcode', 'product', 'product2', 'class1', 'class2', 'class3', 'maker'];
+const ALLOWED_FIELD_KEYS = ['barcode', 'product', 'product2', 'class1', 'class2', 'class3', 'maker', 'salePrice'];
 
 // Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet) and maps
 // its header row to fields, deduped by `barcode` (re-importing the same
 // file will update existing rows rather than duplicate them once uploaded).
-// Rows without a barcode are skipped and counted, not errored, since a
-// stray blank row in an exported sheet is the common case, not a mistake.
-// Does not write anything — see uploadParsedRows for that, so the caller
-// can show a preview and let the admin confirm before anything is written.
+// Rows missing a barcode, a product name, or a (non-zero) sale price are
+// skipped and counted, not errored, since a stray blank/incomplete row in
+// an exported sheet is the common case, not a mistake — but only when that
+// column is actually present in the file, since not every export includes
+// a product name or sale price column. Does not write anything — see
+// uploadParsedRows for that, so the caller can show a preview and let the
+// admin confirm before anything is written.
 export async function parseExcelFile(file) {
   const XLSX = await import('@e965/xlsx');
   // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
@@ -70,6 +73,8 @@ export async function parseExcelFile(file) {
   const columns = ALLOWED_FIELD_KEYS.map((key) => ({ key, index: keys.indexOf(key) }))
     .filter(({ index }) => index !== -1)
     .map(({ key, index }) => ({ key, index, label: headerRow[index] }));
+  const hasProductColumn = columns.some((c) => c.key === 'product');
+  const hasSalePriceColumn = columns.some((c) => c.key === 'salePrice');
   const rowsByBarcode = new Map();
   let skipped = 0;
   dataRows.forEach((row) => {
@@ -81,8 +86,17 @@ export async function parseExcelFile(file) {
     const fields = { barcode };
     columns.forEach(({ key, index }) => {
       if (key === 'barcode') return;
-      fields[key] = normalizeCellValue(row[index], cptable);
+      const value = normalizeCellValue(row[index], cptable);
+      fields[key] = key === 'salePrice' ? Number(value) || 0 : value;
     });
+    if (hasProductColumn && !String(fields.product).trim()) {
+      skipped += 1;
+      return;
+    }
+    if (hasSalePriceColumn && !fields.salePrice) {
+      skipped += 1;
+      return;
+    }
     rowsByBarcode.set(barcode, fields);
   });
 
