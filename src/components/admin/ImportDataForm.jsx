@@ -32,7 +32,13 @@ export default function ImportDataForm() {
       <h3>{t('admin.importTitle')}</h3>
       <p className="import-hint">{t('admin.importHint')}</p>
       <label>
-        <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportFile} disabled={importing} />
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv,.tsv,.txt"
+          onChange={handleImportFile}
+          disabled={importing}
+        />
       </label>
       {importing && <LoadingSpinner />}
       {importSummary && (

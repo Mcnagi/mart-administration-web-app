@@ -31,12 +31,53 @@ function normalizeCellValue(value) {
   return value ?? '';
 }
 
-// Reads an .xlsx or legacy .xls file (first sheet), maps its header row to
-// fields, and upserts each row into the `data` collection keyed by its
-// `barcode` column so re-importing the same file updates existing rows
-// rather than duplicating them. Rows without a barcode are skipped and
-// counted, not errored, since a stray blank row in an exported sheet is the
-// common case, not a mistake.
+// BIFF "BOF" (Beginning Of File) record IDs across versions — 0x0009 (BIFF2),
+// 0x0209 (BIFF3), 0x0409 (BIFF4), 0x0809 (BIFF5/BIFF7, and raw BIFF8). Some
+// export tools (common from older DB/SQL "export to Excel" features) write
+// this record directly as the first bytes of the file, skipping the OLE2
+// container that Excel 97+ normally wraps .xls files in.
+const BIFF_BOF_RECORD_IDS = new Set([0x0009, 0x0209, 0x0409, 0x0809]);
+
+// True for the binary spreadsheet formats (.xlsx is a zip, "PK\x03\x04...";
+// legacy .xls is an OLE compound file, or a raw BIFF stream without that
+// wrapper), identified by magic bytes rather than the file's extension/name,
+// which can't be trusted — e.g. a CSV exported from a SQL tool and saved
+// with an ".xls" extension is still just text underneath.
+function isBinarySpreadsheet(bytes) {
+  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b) return true; // xlsx (zip)
+  if (bytes.length >= 4 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
+    return true; // legacy xls (OLE compound file)
+  }
+  if (bytes.length >= 2 && BIFF_BOF_RECORD_IDS.has(bytes[0] | (bytes[1] << 8))) {
+    return true; // raw BIFF stream (pre-OLE2 export)
+  }
+  return false;
+}
+
+// Decodes a plain-text export (CSV/TSV) to a JS string, honoring a BOM when
+// present. Many SQL client "export results" features default to UTF-16 —
+// without sniffing the BOM, that text gets misread as UTF-8/ASCII and every
+// non-Latin character (and often the byte pairs around plain ASCII headers
+// too) turns into replacement characters before parsing ever sees it.
+function decodeTextFile(bytes) {
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+// Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet), maps its
+// header row to fields, and upserts each row into the `data` collection
+// keyed by its `barcode` column so re-importing the same file updates
+// existing rows rather than duplicating them. Rows without a barcode are
+// skipped and counted, not errored, since a stray blank row in an exported
+// sheet is the common case, not a mistake.
 export async function importExcelData(file) {
   const XLSX = await import('@e965/xlsx');
   // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
@@ -47,8 +88,11 @@ export async function importExcelData(file) {
   // sharedStrings.xml), so this only matters for the legacy format.
   const cptable = await import('@e965/xlsx/dist/cpexcel.full.mjs');
   XLSX.set_cptable(cptable);
-  const data = await file.arrayBuffer();
-  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const workbook = isBinarySpreadsheet(bytes)
+    ? XLSX.read(buffer, { type: 'array', cellDates: true })
+    : XLSX.read(decodeTextFile(bytes), { type: 'string', cellDates: true });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   const sheet = worksheet ? XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) : [];
   if (sheet.length < 2) {
