@@ -72,7 +72,6 @@ export async function importExcelData(file, ownerId) {
     throw new Error(t('errors.importNoValidRows'));
   }
 
-  const existingBarcodes = new Set(await dataApi.listBarcodes());
-  const { created, updated } = await dataApi.upsertRowsByBarcode(rows, existingBarcodes, ownerId);
-  return { created, updated, skipped };
+  await dataApi.upsertRowsByBarcode(rows, ownerId);
+  return { imported: rows.length, skipped };
 }

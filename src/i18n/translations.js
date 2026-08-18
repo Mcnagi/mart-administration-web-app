@@ -203,7 +203,7 @@ export const translations = {
         'Upload an .xlsx file with a header row. A "Barcode" column is required — it\'s used as each item\'s ID, so re-uploading the same barcode updates that item instead of duplicating it. Other column headers (Name, Quantity, Expiry Date, Category, Branch, Note, …) are matched to item fields automatically.',
       importButton: 'Import',
       importing: 'Importing…',
-      importSummary: 'Imported {created} new, updated {updated}, skipped {skipped} row(s) without a barcode.',
+      importSummary: 'Imported {imported} row(s), skipped {skipped} without a barcode.',
       errorImport: 'Import failed.',
     },
     common: {
@@ -424,7 +424,7 @@ export const translations = {
         '머리글 행이 있는 .xlsx 파일을 업로드하세요. "Barcode" 열은 필수이며 각 품목의 ID로 사용되므로, 같은 바코드를 다시 업로드하면 중복 생성 대신 기존 품목이 갱신됩니다. 다른 열 이름(Name, Quantity, Expiry Date, Category, Branch, Note 등)은 자동으로 품목 필드에 매칭됩니다.',
       importButton: '가져오기',
       importing: '가져오는 중…',
-      importSummary: '{created}개 추가, {updated}개 갱신, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',
+      importSummary: '{imported}개 행을 가져왔고, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',
       errorImport: '가져오기에 실패했습니다.',
     },
     common: {

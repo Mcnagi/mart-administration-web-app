@@ -40,8 +40,7 @@ export default function ImportDataForm() {
       {importSummary && (
         <div className="callout">
           {t('admin.importSummary', {
-            created: importSummary.created,
-            updated: importSummary.updated,
+            imported: importSummary.imported,
             skipped: importSummary.skipped,
           })}
         </div>
