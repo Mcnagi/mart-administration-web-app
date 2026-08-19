@@ -1,6 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { parseExcelFile, uploadParsedRows } from '../../services/dataService';
+import {
+  parseExcelFile,
+  uploadParsedRows,
+  continuePendingImport,
+  getPendingRowCount,
+  clearPendingRows,
+} from '../../services/dataService';
 import LoadingSpinner from '../LoadingSpinner';
 
 const PREVIEW_ROW_COUNT = 5;
@@ -12,7 +18,12 @@ export default function ImportDataForm() {
   const [uploading, setUploading] = useState(false);
   const [importError, setImportError] = useState('');
   const [importSummary, setImportSummary] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const importInputRef = useRef(null);
+
+  useEffect(() => {
+    getPendingRowCount().then(setPendingCount);
+  }, []);
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -20,6 +31,10 @@ export default function ImportDataForm() {
     setImportError('');
     setImportSummary(null);
     setParsed(null);
+    // A freshly selected file replaces whatever was left over from a
+    // previous, not-yet-finished import.
+    await clearPendingRows();
+    setPendingCount(0);
     setParsing(true);
     try {
       const result = await parseExcelFile(file);
@@ -42,9 +57,26 @@ export default function ImportDataForm() {
       setParsed(null);
       if (importInputRef.current) importInputRef.current.value = '';
     } catch (err) {
+      console.error('[data import] upload failed', err);
       setImportError(err.message || t('admin.errorImport'));
     } finally {
       setUploading(false);
+      setPendingCount(await getPendingRowCount());
+    }
+  }
+
+  async function handleContinueUpload() {
+    setImportError('');
+    setUploading(true);
+    try {
+      const { imported } = await continuePendingImport();
+      setImportSummary({ imported, skipped: 0 });
+    } catch (err) {
+      console.error('[data import] continue upload failed', err);
+      setImportError(err.message || t('admin.errorImport'));
+    } finally {
+      setUploading(false);
+      setPendingCount(await getPendingRowCount());
     }
   }
 
@@ -68,6 +100,16 @@ export default function ImportDataForm() {
         />
       </label>
       {parsing && <LoadingSpinner />}
+      {pendingCount > 0 && !parsed && (
+        <div className="callout">
+          {t('admin.importPending', { remaining: pendingCount })}
+          <div className="form-actions">
+            <button type="button" className="btn-primary" onClick={handleContinueUpload} disabled={uploading}>
+              {uploading ? t('admin.importing') : t('admin.continueImportButton')}
+            </button>
+          </div>
+        </div>
+      )}
       {parsed && (
         <div className="import-preview">
           <h4>{t('admin.previewTitle')}</h4>

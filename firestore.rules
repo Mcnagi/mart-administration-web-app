@@ -79,6 +79,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Firestore mirror of the pending-import string kept in localStorage
+    // (see api/pendingImportApi.js) — same admin-only access as `data`
+    // above, since it's part of the same import flow.
+    match /imports/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // Append-only audit trail of every items/users read+write and auth
     // event (see api/logsApi.js). Any signed-in user can write their own
     // entries — deliberately signedIn() rather than isActive(), so actions

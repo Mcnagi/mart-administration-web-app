@@ -215,6 +215,8 @@ export const translations = {
       previewTitle: 'Preview',
       totalRows: 'Total rows: {total}',
       cancel: 'Cancel',
+      importPending: '{remaining} row(s) from a previous import are still waiting to be uploaded.',
+      continueImportButton: 'Continue upload',
     },
     common: {
       loading: 'Loading',
@@ -446,6 +448,8 @@ export const translations = {
       previewTitle: '미리보기',
       totalRows: '전체 행: {total}개',
       cancel: '취소',
+      importPending: '이전 가져오기에서 아직 업로드되지 않은 {remaining}개 행이 있습니다.',
+      continueImportButton: '이어서 업로드',
     },
     common: {
       loading: '로딩 중',

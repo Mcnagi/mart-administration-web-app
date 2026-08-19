@@ -4,8 +4,83 @@
 // itemService.js). Views should call only this file, never api/dataApi.js
 // directly.
 import * as dataApi from '../api/dataApi';
+import * as pendingImportApi from '../api/pendingImportApi';
 import { t } from '../i18n/i18n';
 import { isBinarySpreadsheet, decodeTextFile, fixMojibake, headerToFieldKey } from '../utils/spreadsheetEncoding';
+import {
+  encodePendingRows,
+  decodePendingRows,
+  savePendingRows as saveLocalPendingRows,
+  loadPendingRows as loadLocalPendingRows,
+  getPendingRowCount as getLocalPendingRowCount,
+  clearPendingRows as clearLocalPendingRows,
+} from '../utils/pendingImport';
+
+// Firestore's free-tier (Spark plan) daily write quota is 20,000 writes.
+// Uploading no more than this many rows per call keeps a large import from
+// burning through the whole day's quota in one shot, leaving headroom for
+// the writeLog call and any other admin writes that day.
+const UPLOAD_CHUNK_SIZE = 19500;
+
+// The pending import (rows saved by uploadParsedRows past the chunk size,
+// or left over after a failed upload) is saved to Firestore
+// (api/pendingImportApi.js) so it can be resumed from another device.
+// localStorage is only a fallback for when that Firestore write itself
+// fails — e.g. offline, or a very large remainder exceeding Firestore's
+// 1MiB document cap — so the rows aren't lost even then. A successful
+// Firestore write clears any such leftover local fallback, so a later load
+// can't mistakenly prefer stale local data over a good Firestore save.
+async function savePendingRows(rows) {
+  try {
+    if (rows.length === 0) {
+      await pendingImportApi.deletePendingImportString();
+    } else {
+      await pendingImportApi.savePendingImportString(encodePendingRows(rows));
+    }
+    clearLocalPendingRows();
+  } catch (err) {
+    console.error('Failed to save pending import to Firestore, falling back to localStorage', err);
+    saveLocalPendingRows(rows);
+  }
+}
+
+// localStorage is checked first: its presence means a previous save() fell
+// back to it after a Firestore write failure, so it holds the freshest data
+// and Firestore may be stale. Otherwise the rows live in Firestore as normal.
+async function loadPendingRows() {
+  const local = loadLocalPendingRows();
+  if (local.length > 0) return local;
+  try {
+    const remote = await pendingImportApi.getPendingImportString();
+    return remote ? decodePendingRows(remote) : [];
+  } catch (err) {
+    console.error('Failed to load pending import from Firestore', err);
+    return [];
+  }
+}
+
+async function clearPendingRows() {
+  clearLocalPendingRows();
+  try {
+    await pendingImportApi.deletePendingImportString();
+  } catch (err) {
+    console.error('Failed to clear pending import from Firestore', err);
+  }
+}
+
+// Row count for UI display — local first, falling back to a Firestore read
+// only when there's nothing local to show (see loadPendingRows above).
+export async function getPendingRowCount() {
+  const local = getLocalPendingRowCount();
+  if (local > 0) return local;
+  try {
+    const remote = await pendingImportApi.getPendingImportString();
+    return remote ? decodePendingRows(remote).length : 0;
+  } catch (err) {
+    console.error('Failed to read pending import count from Firestore', err);
+    return 0;
+  }
+}
 
 // Spreadsheet libraries hand back date cells as JS Date objects built from
 // UTC parts (no timezone in a date cell), so this must read UTC parts back
@@ -109,8 +184,47 @@ export async function parseExcelFile(file) {
 }
 
 // Writes previously parsed rows (see parseExcelFile) to the `data`
-// collection, keyed by barcode.
+// collection, keyed by barcode. Only the first UPLOAD_CHUNK_SIZE rows are
+// uploaded — anything beyond that is saved as a pending import (see
+// utils/pendingImport.js) rather than uploaded now, so the caller should
+// check the returned `remaining` count and offer continuePendingImport().
+//
+// If the upload itself fails partway (e.g. the daily write quota is hit),
+// whatever wasn't confirmed as written is saved as the pending import too,
+// so a failed attempt doesn't lose parsed data — it just needs a retry via
+// continuePendingImport() once the error clears.
 export async function uploadParsedRows(rows) {
-  await dataApi.upsertRowsByBarcode(rows);
-  return { imported: rows.length };
+  const chunk = rows.slice(0, UPLOAD_CHUNK_SIZE);
+  const overflow = rows.slice(UPLOAD_CHUNK_SIZE);
+  console.log(`[data import] uploading ${chunk.length} row(s), ${overflow.length} row(s) queued for later`);
+  try {
+    await dataApi.upsertRowsByBarcode(chunk);
+  } catch (err) {
+    const notUploaded = chunk.slice(err.uploadedCount ?? 0);
+    console.error(
+      `[data import] upload failed; saving ${notUploaded.length + overflow.length} row(s) as pending`,
+      err,
+    );
+    await savePendingRows([...notUploaded, ...overflow]);
+    throw err;
+  }
+  console.log(`[data import] upload finished: ${chunk.length} row(s) uploaded, ${overflow.length} row(s) remaining`);
+  await savePendingRows(overflow);
+  return { imported: chunk.length, remaining: overflow.length };
 }
+
+// Resumes an import left pending by uploadParsedRows — either because the
+// file had more rows than one chunk, or because a previous attempt failed
+// partway through. Parses the saved string back into rows (local copy first,
+// falling back to the Firestore mirror) and re-runs the same chunked upload.
+export async function continuePendingImport() {
+  const rows = await loadPendingRows();
+  if (rows.length === 0) {
+    console.log('[data import] no pending import to continue');
+    return { imported: 0, remaining: 0 };
+  }
+  console.log(`[data import] continuing pending import: ${rows.length} row(s) loaded`);
+  return uploadParsedRows(rows);
+}
+
+export { clearPendingRows };
