@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { subscribeItems } from '../services/itemService';
+import { subscribeItems, resolveProductName } from '../services/itemService';
 import { useTranslation } from './LanguageContext';
 import { scheduleIdle } from '../utils/idleSchedule';
 
@@ -16,10 +16,19 @@ export function ItemsProvider({ children }) {
   const { t } = useTranslation();
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
+  // Barcode items don't store their own name (see saveItem in
+  // itemService.js), so it's resolved here for display: once per barcode,
+  // cached by barcode so re-renders and repeat snapshots don't re-look it
+  // up. `pendingBarcodes` tracks in-flight lookups separately so a barcode
+  // with no match (empty string here) isn't retried on every snapshot.
+  const [resolvedNames, setResolvedNames] = useState({});
+  const pendingBarcodes = useRef(new Set());
 
   useEffect(() => {
     if (!user) {
       setItems(null);
+      setResolvedNames({});
+      pendingBarcodes.current.clear();
       return;
     }
 
@@ -45,7 +54,38 @@ export function ItemsProvider({ children }) {
     };
   }, [user, t]);
 
-  return <ItemsContext.Provider value={{ items, error }}>{children}</ItemsContext.Provider>;
+  // Kicks off a name lookup for each barcode item not yet resolved (or in
+  // flight) whenever the item list changes — new items, or a resolved name
+  // from a previous run landing in `resolvedNames`.
+  useEffect(() => {
+    if (!items) return;
+    const barcodes = [
+      ...new Set(
+        items
+          .filter((item) => !item.name && item.barcode && !(item.barcode in resolvedNames))
+          .map((item) => item.barcode)
+      ),
+    ].filter((barcode) => !pendingBarcodes.current.has(barcode));
+    if (barcodes.length === 0) return;
+
+    barcodes.forEach((barcode) => pendingBarcodes.current.add(barcode));
+    Promise.all(
+      barcodes.map(async (barcode) => [barcode, (await resolveProductName(barcode)) || ''])
+    ).then((entries) => {
+      setResolvedNames((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      barcodes.forEach((barcode) => pendingBarcodes.current.delete(barcode));
+    });
+  }, [items, resolvedNames]);
+
+  const displayItems =
+    items &&
+    items.map((item) =>
+      !item.name && item.barcode && resolvedNames[item.barcode]
+        ? { ...item, name: resolvedNames[item.barcode] }
+        : item
+    );
+
+  return <ItemsContext.Provider value={{ items: displayItems, error }}>{children}</ItemsContext.Provider>;
 }
 
 export function useItems() {

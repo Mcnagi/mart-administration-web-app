@@ -2,6 +2,8 @@
 // orchestrating the api + image services. Views should call only this file,
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
+import { getDataByBarcode } from '../api/dataApi';
+import { getExternalProductInfo } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { t } from '../i18n/i18n';
 
@@ -95,6 +97,28 @@ export function sortByCreatedAt(items) {
 
 export function fetchItems() {
   return itemsApi.listItems();
+}
+
+// A barcode item doesn't store its own name (see saveItem below), so the
+// items list resolves one for display: the imported `data` collection first
+// (same source ItemFormPage's search uses), falling back to the external
+// Open Food Facts lookup. Both are best-effort — this backs a background
+// display fill-in, not a user-initiated search, so failures just mean no
+// name rather than a surfaced error.
+export async function resolveProductName(barcode) {
+  try {
+    const row = await getDataByBarcode(barcode);
+    if (row?.product) return row.product;
+  } catch {
+    // fall through to the external lookup
+  }
+  try {
+    const info = await getExternalProductInfo(barcode);
+    if (info?.name) return info.name;
+  } catch {
+    // no external match either
+  }
+  return null;
 }
 
 // Live view of the items list; see itemsApi.subscribeItems for why this
