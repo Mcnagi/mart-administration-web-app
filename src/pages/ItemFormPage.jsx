@@ -6,6 +6,7 @@ import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import * as usersApi from '../api/usersApi';
 import { getDataByBarcode } from '../api/dataApi';
+import { getExternalProductInfo } from '../api/barcodeLookupApi';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon, BarcodeIcon } from '../components/icons';
@@ -120,7 +121,23 @@ export default function ItemFormPage() {
         setCategory([result.class1, result.class2, result.class3].filter(Boolean).join('-'));
         setSearchStatus('found');
       } else {
-        setSearchStatus('notFound');
+        // Not in our own Firestore data — fall back to an external barcode
+        // database. Failures here (the service is down, network error) are
+        // treated the same as "not found" rather than surfaced as a search
+        // error, since our own lookup already succeeded.
+        let info = null;
+        try {
+          info = await getExternalProductInfo(trimmed);
+        } catch {
+          info = null;
+        }
+        if (info) {
+          setSearchResult({ product: info.name, quantity: info.quantity, brand: info.brand });
+          setCategory(info.category);
+          setSearchStatus('foundExternal');
+        } else {
+          setSearchStatus('notFound');
+        }
       }
     } catch (err) {
       setSearchStatus('error');
@@ -199,10 +216,16 @@ export default function ItemFormPage() {
               onChange={(e) => setBarcode(e.target.value)}
               placeholder={t('itemForm.barcodePlaceholder')}
             />
-            <button type="button" className="btn-outline barcode-scan-btn" onClick={() => setScanning(true)}>
+            <button
+              type="button"
+              className="barcode-scan-inline-btn"
+              onClick={() => setScanning(true)}
+              aria-label={t('itemForm.scan')}
+            >
               <BarcodeIcon />
-              {t('itemForm.scan')}
             </button>
+          </div>
+          <div className="barcode-actions-row">
             <button
               type="button"
               className="btn-outline barcode-scan-btn"
@@ -224,24 +247,23 @@ export default function ItemFormPage() {
         {searchStatus && (
           <p className="search-status">
             {searchStatus === 'found' && t('itemForm.searchFound')}
+            {searchStatus === 'foundExternal' && t('itemForm.searchFoundExternal')}
             {searchStatus === 'notFound' && t('itemForm.searchNotFound')}
             {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
           </p>
         )}
-        <label>
-          {t('itemForm.photo')}
-          <input type="file" accept="image/*" onChange={handlePhotoChange} />
-        </label>
-        {previewUrl && (
-          <div className="photo-preview">
-            <img src={previewUrl} alt={t('itemForm.previewAlt')} />
-          </div>
-        )}
         {searchResult ? (
-          <div className="search-product-name">
+          <div className="search-product-card">
+            {searchResult.brand && (
+              <>
+                <span className="search-product-name-label">{t('itemForm.brand')}</span>
+                <span className="search-product-line">{searchResult.brand}</span>
+              </>
+            )}
             <span className="search-product-name-label">{t('itemForm.name')}</span>
-            <span className="search-product-line">{searchResult.product || ''}</span>
-            <span className="search-product-line">{searchResult.product2 || ''}</span>
+            <span className="search-product-line">
+              {[searchResult.product, searchResult.quantity || searchResult.product2].filter(Boolean).join(' ')}
+            </span>
             {category && (
               <>
                 <span className="search-product-name-label">{t('itemForm.category')}</span>
@@ -260,7 +282,16 @@ export default function ItemFormPage() {
             />
           </label>
         )}
-        <label>
+        <label className="label-inline">
+          {t('itemForm.photo')}
+          <input type="file" accept="image/*" onChange={handlePhotoChange} />
+        </label>
+        {previewUrl && (
+          <div className="photo-preview">
+            <img src={previewUrl} alt={t('itemForm.previewAlt')} />
+          </div>
+        )}
+        <label className="label-inline">
           {t('itemForm.quantity')}
           <input
             type="number"
@@ -271,7 +302,7 @@ export default function ItemFormPage() {
             placeholder={t('itemForm.quantityPlaceholder')}
           />
         </label>
-        <label>
+        <label className="label-inline">
           {t('itemForm.expiryDate')}
           <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
         </label>
@@ -286,17 +317,8 @@ export default function ItemFormPage() {
             />
           </label>
         )}
-        <label>
-          {t('itemForm.note')}
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t('itemForm.notePlaceholder')}
-            rows={3}
-          />
-        </label>
         {BRANCHES.length > 0 && (
-          <label>
+          <label className="label-inline">
             {t('itemForm.branch')}
             <select value={branch} onChange={(e) => setBranch(e.target.value)}>
               <option value="">{t('itemForm.noBranchOption')}</option>
@@ -308,6 +330,15 @@ export default function ItemFormPage() {
             </select>
           </label>
         )}
+        <label>
+          {t('itemForm.note')}
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t('itemForm.notePlaceholder')}
+            rows={3}
+          />
+        </label>
         {error && <div className="form-error">{error}</div>}
         <div className="form-actions">
           <button type="submit" className="btn-primary" disabled={saving}>

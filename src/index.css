@@ -538,6 +538,19 @@ h1, h2, h3 {
   color: var(--text-muted);
 }
 
+.item-form label.label-inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.item-form label.label-inline > input,
+.item-form label.label-inline > select {
+  flex: 1;
+  min-width: 0;
+}
+
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -611,14 +624,46 @@ textarea:focus {
 }
 
 .barcode-input-row {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .barcode-input-row input {
   flex: 1;
   min-width: 0;
+  padding-right: 52px;
+}
+
+.barcode-scan-inline-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.barcode-scan-inline-btn:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.barcode-scan-inline-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.barcode-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .barcode-scan-btn {
@@ -639,12 +684,15 @@ textarea:focus {
   color: var(--text-muted);
 }
 
-.search-product-name {
+.search-product-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
   text-align: left;
   font-size: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .search-product-name-label {
