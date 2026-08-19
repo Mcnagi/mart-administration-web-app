@@ -3,6 +3,7 @@ import { useSelection } from '../context/SelectionContext';
 import { useItems } from '../context/ItemsContext';
 import { useTranslation } from '../context/LanguageContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Toast from '../components/Toast';
 import SelectionBar from '../components/items/SelectionBar';
 import FilterBar from '../components/items/FilterBar';
 import ExpirySection from '../components/items/ExpirySection';
@@ -13,6 +14,11 @@ export default function ItemsPage() {
   const { t } = useTranslation();
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [filterResult, setFilterResult] = useState({ sections: [], filteredCount: 0, showHeadings: true });
+
+  // Every time this page is visited (including on refresh — nothing is
+  // persisted across visits), default the discount filter to "no discount"
+  // and remind the user with a self-dismissing toast.
+  const [showDiscountToast, setShowDiscountToast] = useState(true);
 
   // Selection state is shared with NavBar (which hides the bottom nav while
   // selecting) via context, which outlives this page — clear it if the page
@@ -52,7 +58,14 @@ export default function ItemsPage() {
         <p className="empty-state">{t('items.emptyNone')}</p>
       ) : (
         <>
-          <FilterBar items={items} onFilterChange={setFilterResult} />
+          {showDiscountToast && (
+            <Toast
+              message={t('items.discountFilterHint')}
+              onDismiss={() => setShowDiscountToast(false)}
+            />
+          )}
+
+          <FilterBar items={items} onFilterChange={setFilterResult} initialDiscountFilter="none" />
 
           {filteredCount === 0 ? (
             <p className="empty-state">{t('items.emptyFiltered')}</p>

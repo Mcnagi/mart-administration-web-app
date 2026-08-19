@@ -1520,3 +1520,33 @@ textarea:focus {
     break-after: page;
   }
 }
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  top: max(calc(var(--topbar-h) + 12px), env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: 0.9rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

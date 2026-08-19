@@ -18,7 +18,7 @@ import { FilterIcon } from '../icons';
 // sort order are active, and reports the filtered+sorted+grouped result up
 // so the page can render it — the raw item list is the only thing it needs
 // from the parent.
-export default function FilterBar({ items, onFilterChange }) {
+export default function FilterBar({ items, onFilterChange, initialDiscountFilter }) {
   const { isAdmin } = useAuth();
   const { selecting, setSelecting } = useSelection();
   const { t } = useTranslation();
@@ -26,7 +26,9 @@ export default function FilterBar({ items, onFilterChange }) {
   const [open, setOpen] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState(new Set());
   const [selectedExpiryKeys, setSelectedExpiryKeys] = useState(new Set());
-  const [selectedDiscountKeys, setSelectedDiscountKeys] = useState(new Set());
+  const [selectedDiscountKeys, setSelectedDiscountKeys] = useState(
+    () => new Set(initialDiscountFilter ? [initialDiscountFilter] : []),
+  );
   const [sortBy, setSortBy] = useState('expiry');
 
   function toggleBranch(branch) {

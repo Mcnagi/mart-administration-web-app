@@ -42,6 +42,7 @@ export const translations = {
       confirmBulkDelete: 'Delete {count} item(s)? This cannot be undone.',
       errorLoad: 'Failed to load items.',
       errorBulk: 'Bulk action failed.',
+      discountFilterHint: 'Showing items with no discount by default. Use Filter to see all items.',
     },
     itemCard: {
       noPhoto: 'No photo',
@@ -277,6 +278,7 @@ export const translations = {
       confirmBulkDelete: '품목 {count}개를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
       errorLoad: '품목을 불러오지 못했습니다.',
       errorBulk: '일괄 작업에 실패했습니다.',
+      discountFilterHint: '기본적으로 할인이 없는 품목을 보여드립니다. 모든 품목을 보려면 필터를 사용하세요.',
     },
     itemCard: {
       noPhoto: '사진 없음',
