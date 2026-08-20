@@ -19,7 +19,10 @@ import {
 // Firestore's free-tier (Spark plan) daily write quota is 20,000 writes.
 // Uploading no more than this many rows per call keeps a large import from
 // burning through the whole day's quota in one shot, leaving headroom for
-// the writeLog call and any other admin writes that day.
+// the writeLog call and any other admin writes that day. (The read side —
+// 1 getDoc per row via upsertRowsByBarcode's change check — is nowhere
+// close to the 50,000/day read quota at this size; see firestore.rules'
+// data/{docId} write rule for why writes don't also tax the read quota.)
 const UPLOAD_CHUNK_SIZE = 19500;
 
 // The pending import (rows saved by uploadParsedRows past the chunk size,

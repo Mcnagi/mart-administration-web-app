@@ -21,7 +21,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isActive() && myProfile().role == 'admin';
+      return signedIn() && myProfile().disabled == false && myProfile().role == 'admin';
     }
 
     // Users can read their own profile (needed at login to check
@@ -58,7 +58,7 @@ service cloud.firestore {
     // every item — there's no per-user ownership restriction, matching the
     // "shared pantry list" use case.
     match /items/{itemId} {
-      allow read: if isActive();
+      allow read: if signedIn();
       allow create: if isActive() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isActive();
     }
@@ -72,16 +72,11 @@ service cloud.firestore {
       allow update, delete: if isActive();
     }
 
-    // Raw staging store for admin Excel imports (services/dataService.js),
-    // decoupled from the curated `items` inventory above — admin-only in
-    // both directions since nothing else in the app reads or writes it.
     match /data/{docId} {
       allow read, write: if isAdmin();
     }
 
     // Firestore mirror of the pending-import string kept in localStorage
-    // (see api/pendingImportApi.js) — same admin-only access as `data`
-    // above, since it's part of the same import flow.
     match /imports/{docId} {
       allow read, write: if isAdmin();
     }
@@ -95,8 +90,6 @@ service cloud.firestore {
     // back, and no entry can ever be edited or deleted once written.
     match /logs/{logId} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow get, list: if isAdmin();
-      allow update, delete: if false;
     }
   }
 }
