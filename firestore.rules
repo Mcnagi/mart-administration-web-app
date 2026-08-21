@@ -72,8 +72,15 @@ service cloud.firestore {
       allow update, delete: if isActive();
     }
 
+    // Imported product rows, keyed by barcode. Also holds a `photos` field
+    // per doc caching candidate product images found via search (see
+    // services/photoSearchService.js) — any active user can look those up
+    // or refresh the cache while adding items via the item form's barcode
+    // search, not just admins (the bulk Excel import UI stays admin-only at
+    // the route level in App.jsx, even though this rule no longer enforces
+    // that at the data layer too).
     match /data/{docId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isActive();
     }
 
     // Firestore mirror of the pending-import string kept in localStorage

@@ -11,3 +11,8 @@ export const BRANCHES = (import.meta.env.VITE_BRANCHES || '')
   .split(',')
   .map((b) => b.trim())
   .filter(Boolean);
+
+// Google Custom Search API credentials for product-photo lookup (see
+// api/googleImageSearchApi.js). Both blank disables photo search entirely.
+export const GOOGLE_CSE_API_KEY = import.meta.env.VITE_GOOGLE_CSE_API_KEY || '';
+export const GOOGLE_CSE_CX = import.meta.env.VITE_GOOGLE_CSE_CX || '';

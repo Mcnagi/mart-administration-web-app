@@ -16,6 +16,21 @@ export async function getDataByBarcode(barcode) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
+// Caches candidate product photos (found via services/photoSearchService)
+// as a `photos` field on the same doc as the imported row, keyed by the
+// same barcode — so barcode lookup and its photos always move together,
+// and re-importing the spreadsheet (see upsertRowsByBarcode below) never
+// touches this field since it writes with `merge: true` and never includes
+// `photos` in its own field set. Also the only way a `data/{barcode}` doc
+// gets created for a barcode that isn't in the imported spreadsheet at all
+// (see services/itemService/ItemFormPage's Open Food Facts fallback) — such
+// a doc has no `product` field, so callers must check for that before
+// treating a hit here as a real imported-row match.
+export async function savePhotosForBarcode(barcode, images) {
+  await setDoc(doc(dataCol, barcode), { barcode, photos: images }, { merge: true });
+  writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
+}
+
 function fieldsUnchanged(existing, fields) {
   return existing != null && Object.keys(fields).every((key) => existing[key] === fields[key]);
 }

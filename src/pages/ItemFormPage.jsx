@@ -6,7 +6,8 @@ import { saveItem, removeItem } from '../services/itemService';
 import * as itemsApi from '../api/itemsApi';
 import * as usersApi from '../api/usersApi';
 import { getDataByBarcode } from '../api/dataApi';
-import { getExternalProductInfo } from '../api/barcodeLookupApi';
+import { getExternalProductInfo, getExternalProductImage } from '../api/barcodeLookupApi';
+import { findProductPhotos } from '../services/photoSearchService';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon, BarcodeIcon } from '../components/icons';
@@ -15,6 +16,12 @@ import { BRANCHES } from '../appConfig';
 // Lazy-loaded: pulls in @zxing/browser, which is sizable and only needed by
 // the minority of visits that actually tap "Scan".
 const BarcodeScanner = lazy(() => import('../components/BarcodeScanner'));
+
+// Hidden while the Google Custom Search API key setup is still being sorted
+// out (billing account issue) — flip back on once VITE_GOOGLE_CSE_API_KEY
+// is confirmed working. The automatic photo search on barcode lookup stays
+// on regardless; it fails silently to an empty result set until then.
+const SHOW_SEARCH_PHOTOS_BUTTON = false;
 
 export default function ItemFormPage() {
   const { itemId } = useParams();
@@ -38,6 +45,12 @@ export default function ItemFormPage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
+  const [photoCandidates, setPhotoCandidates] = useState([]);
+  const [loadingPhotoCandidates, setLoadingPhotoCandidates] = useState(false);
+  // Combined English + Korean name from the last barcode search, kept
+  // around so the manual "Search photos" button can re-run (or force a
+  // fresh run past the cache) without redoing the barcode lookup.
+  const [photoQuery, setPhotoQuery] = useState('');
   const [uploaderName, setUploaderName] = useState('');
   const [uploadedAt, setUploadedAt] = useState(null);
   const [loading, setLoading] = useState(isEditing);
@@ -100,11 +113,34 @@ export default function ItemFormPage() {
     if (!file) return;
     setPhotoFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    setPhotoCandidates([]);
   }
 
   function handleBarcodeDetected(code) {
     setBarcode(code);
     setScanning(false);
+  }
+
+  function handlePickCandidate(base64) {
+    setPhotoFile(null);
+    setExistingPhotoBase64(base64);
+    setPreviewUrl(base64);
+    setPhotoCandidates([]);
+  }
+
+  // Best-effort search for candidate product photos, run separately from
+  // handleSearch's own loading state so it doesn't hold up re-enabling the
+  // Search button — see services/photoSearchService.findProductPhotos.
+  async function loadPhotoCandidates(barcodeValue, query) {
+    setLoadingPhotoCandidates(true);
+    try {
+      const images = await findProductPhotos(barcodeValue, query);
+      setPhotoCandidates(images);
+    } catch {
+      setPhotoCandidates([]);
+    } finally {
+      setLoadingPhotoCandidates(false);
+    }
   }
 
   async function handleSearch() {
@@ -114,12 +150,27 @@ export default function ItemFormPage() {
     setSearchResult(null);
     setSearchStatus('');
     setSearchErrorMessage('');
+    setPhotoCandidates([]);
     try {
-      const result = await getDataByBarcode(trimmed);
-      if (result) {
-        setSearchResult(result);
-        setCategory([result.class1, result.class2, result.class3].filter(Boolean).join('-'));
+      // A data/{barcode} doc can exist with only a cached `photos` field and
+      // no `product` name — e.g. left behind by an earlier Open Food Facts
+      // search below (see dataApi.savePhotosForBarcode) — so a real
+      // imported-row match requires `product`, not just doc existence.
+      const row = await getDataByBarcode(trimmed);
+      if (row?.product) {
+        setSearchResult(row);
+        setCategory([row.class1, row.class2, row.class3].filter(Boolean).join('-'));
         setSearchStatus('found');
+        // Any barcode search checks for a photo: reuse the cache if the
+        // data doc already has one, otherwise go find candidates using the
+        // combined English + Korean name as a single search query.
+        const combined = [row.product, row.product2 || row.maker].filter(Boolean).join(' ');
+        setPhotoQuery(combined);
+        if (row.photos?.length) {
+          setPhotoCandidates(row.photos);
+        } else {
+          loadPhotoCandidates(trimmed, combined);
+        }
       } else {
         // Not in our own Firestore data — fall back to an external barcode
         // database. Failures here (the service is down, network error) are
@@ -135,6 +186,26 @@ export default function ItemFormPage() {
           setSearchResult({ product: info.name, quantity: info.quantity, brand: info.brand });
           setCategory(info.category);
           setSearchStatus('foundExternal');
+          // Only auto-fill the photo if the user hasn't already picked one —
+          // never clobber a manually chosen or existing (edit-mode) photo.
+          if (info.imageUrl && !photoFile && !existingPhotoBase64) {
+            const imageFile = await getExternalProductImage(info.imageUrl);
+            if (imageFile) {
+              setPhotoFile(imageFile);
+              setPreviewUrl(URL.createObjectURL(imageFile));
+            }
+          } else if (!info.imageUrl) {
+            // Open Food Facts has no photo on file — reuse a cached search
+            // (row may be the bare photos-only stub described above), or
+            // fall back to a fresh image search using its English name.
+            const combined = info.nameEn || info.name;
+            setPhotoQuery(combined);
+            if (row?.photos?.length) {
+              setPhotoCandidates(row.photos);
+            } else {
+              loadPhotoCandidates(trimmed, combined);
+            }
+          }
         } else {
           setSearchStatus('notFound');
         }
@@ -153,6 +224,17 @@ export default function ItemFormPage() {
     setSearchStatus('');
     setSearchErrorMessage('');
     setCategory('');
+    setPhotoCandidates([]);
+    setLoadingPhotoCandidates(false);
+    setPhotoQuery('');
+  }
+
+  // Manual re-run of the Google image search, past whatever's cached on the
+  // data doc — for when the automatic candidates (or the cache) aren't good
+  // enough and the user wants fresh results.
+  function handleSearchPhotos() {
+    if (!photoQuery || loadingPhotoCandidates) return;
+    loadPhotoCandidates(barcode.trim(), photoQuery);
   }
 
   async function handleSubmit(e) {
@@ -289,6 +371,34 @@ export default function ItemFormPage() {
         {previewUrl && (
           <div className="photo-preview">
             <img src={previewUrl} alt={t('itemForm.previewAlt')} />
+          </div>
+        )}
+        {SHOW_SEARCH_PHOTOS_BUTTON && photoQuery && (
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={handleSearchPhotos}
+            disabled={loadingPhotoCandidates}
+          >
+            {loadingPhotoCandidates ? t('itemForm.searchingPhotos') : t('itemForm.searchPhotos')}
+          </button>
+        )}
+        {loadingPhotoCandidates && <p className="search-status">{t('itemForm.searchingPhotos')}</p>}
+        {photoCandidates.length > 0 && (
+          <div className="photo-candidates-wrap">
+            <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>
+            <div className="photo-candidates">
+              {photoCandidates.map((candidate, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  className="photo-candidate"
+                  onClick={() => handlePickCandidate(candidate.base64)}
+                >
+                  <img src={candidate.base64} alt={t('itemForm.previewAlt')} />
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <label className="label-inline">

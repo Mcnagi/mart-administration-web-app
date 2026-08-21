@@ -785,6 +785,40 @@ textarea:focus {
   border-radius: 12px;
 }
 
+.photo-candidates-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.photo-candidates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.photo-candidate {
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  width: 72px;
+  height: 72px;
+  cursor: pointer;
+  background: var(--bg);
+}
+
+.photo-candidate:hover {
+  border-color: var(--accent, var(--text-h));
+}
+
+.photo-candidate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* ---------- Items ---------- */
 
 .item-grid {
@@ -898,17 +932,13 @@ textarea:focus {
 .item-card-name {
   font-weight: 600;
   color: var(--text-h);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
 }
 
 .item-card-note {
   font-size: 13px;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
 }
 
 .item-card-bottom {
