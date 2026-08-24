@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../context/LanguageContext';
 import { fetchPromos, computeFinalPrice } from '../services/promoService';
-import * as itemsApi from '../api/itemsApi';
+import { fetchItemById } from '../services/itemService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon } from '../components/icons';
 import PromoBuilderForm from '../components/promoBuilder/PromoBuilderForm';
@@ -64,11 +64,9 @@ export default function PromoBuilderPage() {
 
     if (fromItemId) {
       let cancelled = false;
-      itemsApi
-        .listItems()
-        .then((items) => {
+      fetchItemById(fromItemId)
+        .then((item) => {
           if (cancelled) return;
-          const item = items.find((i) => i.id === fromItemId);
           if (item) {
             skipNextRecalc.current = true;
             setNameEn(item.name || '');

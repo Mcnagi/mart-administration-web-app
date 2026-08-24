@@ -3,7 +3,7 @@
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
 import { getDataByBarcode } from '../api/dataApi';
-import { getExternalProductInfo } from '../api/barcodeLookupApi';
+import { getExternalProductInfo, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { t } from '../i18n/i18n';
 
@@ -97,6 +97,75 @@ export function sortByCreatedAt(items) {
 
 export function fetchItems() {
   return itemsApi.listItems();
+}
+
+export async function fetchItemById(itemId) {
+  const items = await itemsApi.listItems();
+  return items.find((item) => item.id === itemId) ?? null;
+}
+
+// Drives the item form's barcode search button: checks our own imported
+// `data` collection first, falling back to Open Food Facts, and works out
+// what (if anything) needs to happen next for the product photo — a cached
+// candidate list, a fresh search, or an auto-fill from the external source's
+// own photo. The caller (ItemFormPage) owns all UI/loading state; this just
+// makes the found/not-found/source decision and hands back what to show.
+export async function searchProductByBarcode(barcode) {
+  const trimmed = (barcode ?? '').trim();
+  if (!trimmed) return null;
+
+  // A data/{barcode} doc can exist with only a cached `photos` field and no
+  // `product` name (e.g. left behind by an earlier Open Food Facts search
+  // below — see api/dataApi.savePhotosForBarcode), so a real imported-row
+  // match requires `product`, not just doc existence.
+  const row = await getDataByBarcode(trimmed);
+  if (row?.product) {
+    const combined = [row.product, row.product2 || row.maker].filter(Boolean).join(' ');
+    return {
+      status: 'found',
+      searchResult: row,
+      category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
+      photoQuery: combined,
+      cachedPhotos: row.photos?.length ? row.photos : null,
+      externalImageUrl: null,
+    };
+  }
+
+  // Not in our own Firestore data — fall back to an external barcode
+  // database. Failures here (the service is down, network error) are
+  // treated the same as "not found" rather than surfaced as a search error,
+  // since our own lookup already succeeded.
+  const info = await getExternalProductInfo(trimmed).catch(() => null);
+  if (!info) {
+    return { status: 'notFound' };
+  }
+
+  const result = {
+    status: 'foundExternal',
+    searchResult: { product: info.name, quantity: info.quantity, brand: info.brand },
+    category: info.category,
+    photoQuery: null,
+    cachedPhotos: null,
+    externalImageUrl: null,
+  };
+  if (info.imageUrl) {
+    // Caller only auto-fills this if the user hasn't already picked a photo —
+    // never clobber a manually chosen or existing (edit-mode) photo.
+    result.externalImageUrl = info.imageUrl;
+  } else {
+    // Open Food Facts has no photo on file — reuse a cached search (row may
+    // be the bare photos-only stub described above), or let the caller run a
+    // fresh image search using its English name.
+    result.photoQuery = info.nameEn || info.name;
+    result.cachedPhotos = row?.photos?.length ? row.photos : null;
+  }
+  return result;
+}
+
+// Fetches the photo Open Food Facts has on file for a search result, ready
+// to run through the same save path as a manually uploaded photo.
+export function fetchExternalProductImage(imageUrl) {
+  return getExternalProductImage(imageUrl);
 }
 
 // A barcode item doesn't store its own name (see saveItem below), so the

@@ -2,13 +2,15 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
-import { saveItem, removeItem } from '../services/itemService';
-import * as itemsApi from '../api/itemsApi';
-import * as usersApi from '../api/usersApi';
-import { getDataByBarcode } from '../api/dataApi';
-import { getExternalProductInfo, getExternalProductImage } from '../api/barcodeLookupApi';
+import {
+  saveItem,
+  removeItem,
+  fetchItemById,
+  searchProductByBarcode,
+  fetchExternalProductImage,
+} from '../services/itemService';
 import { findProductPhotos } from '../services/photoSearchService';
-import { defaultDisplayNameFromEmail } from '../services/userService';
+import { resolveUploaderDisplayName } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon, BarcodeIcon } from '../components/icons';
 import { BRANCHES } from '../appConfig';
@@ -66,11 +68,9 @@ export default function ItemFormPage() {
       return;
     }
     let cancelled = false;
-    itemsApi
-      .listItems()
-      .then((items) => {
+    fetchItemById(itemId)
+      .then((item) => {
         if (cancelled) return;
-        const item = items.find((i) => i.id === itemId);
         if (!item) {
           setError(t('itemForm.errorItemNotFound'));
           return;
@@ -86,20 +86,9 @@ export default function ItemFormPage() {
         setExistingPhotoBase64(item.photoBase64 || '');
         setPreviewUrl(item.photoBase64 || '');
         setUploadedAt(item.createdAt?.toDate?.() ?? null);
-        if (item.ownerId) {
-          usersApi
-            .getUserProfile(item.ownerId)
-            .then((uploaderProfile) => {
-              if (cancelled) return;
-              // Uploader's profile may have been removed (revokeUser deletes
-              // it rather than the underlying Auth account), so fall back
-              // silently rather than showing an error for a missing name.
-              if (uploaderProfile) {
-                setUploaderName(uploaderProfile.displayName || defaultDisplayNameFromEmail(uploaderProfile.email));
-              }
-            })
-            .catch(() => {});
-        }
+        resolveUploaderDisplayName(item.ownerId).then((displayName) => {
+          if (!cancelled && displayName) setUploaderName(displayName);
+        });
       })
       .catch((err) => setError(err.message || t('itemForm.errorLoad')))
       .finally(() => !cancelled && setLoading(false));
@@ -171,62 +160,27 @@ export default function ItemFormPage() {
     setSearchErrorMessage('');
     setPhotoCandidates([]);
     try {
-      // A data/{barcode} doc can exist with only a cached `photos` field and
-      // no `product` name — e.g. left behind by an earlier Open Food Facts
-      // search below (see dataApi.savePhotosForBarcode) — so a real
-      // imported-row match requires `product`, not just doc existence.
-      const row = await getDataByBarcode(trimmed);
-      if (row?.product) {
-        setSearchResult(row);
-        setCategory([row.class1, row.class2, row.class3].filter(Boolean).join('-'));
-        setSearchStatus('found');
-        // Any barcode search checks for a photo: reuse the cache if the
-        // data doc already has one, otherwise go find candidates using the
-        // combined English + Korean name as a single search query.
-        const combined = [row.product, row.product2 || row.maker].filter(Boolean).join(' ');
-        setPhotoQuery(combined);
-        if (row.photos?.length) {
-          setPhotoCandidates(row.photos);
-        } else {
-          loadPhotoCandidates(trimmed, combined);
-        }
-      } else {
-        // Not in our own Firestore data — fall back to an external barcode
-        // database. Failures here (the service is down, network error) are
-        // treated the same as "not found" rather than surfaced as a search
-        // error, since our own lookup already succeeded.
-        let info = null;
-        try {
-          info = await getExternalProductInfo(trimmed);
-        } catch {
-          info = null;
-        }
-        if (info) {
-          setSearchResult({ product: info.name, quantity: info.quantity, brand: info.brand });
-          setCategory(info.category);
-          setSearchStatus('foundExternal');
-          // Only auto-fill the photo if the user hasn't already picked one —
-          // never clobber a manually chosen or existing (edit-mode) photo.
-          if (info.imageUrl && !photoFile && !existingPhotoBase64) {
-            const imageFile = await getExternalProductImage(info.imageUrl);
-            if (imageFile) {
-              setPhotoFile(imageFile);
-              setPreviewUrl(URL.createObjectURL(imageFile));
-            }
-          } else if (!info.imageUrl) {
-            // Open Food Facts has no photo on file — reuse a cached search
-            // (row may be the bare photos-only stub described above), or
-            // fall back to a fresh image search using its English name.
-            const combined = info.nameEn || info.name;
-            setPhotoQuery(combined);
-            if (row?.photos?.length) {
-              setPhotoCandidates(row.photos);
-            } else {
-              loadPhotoCandidates(trimmed, combined);
-            }
-          }
-        } else {
-          setSearchStatus('notFound');
+      const result = await searchProductByBarcode(trimmed);
+      if (!result || result.status === 'notFound') {
+        setSearchStatus('notFound');
+        return;
+      }
+      setSearchResult(result.searchResult);
+      setCategory(result.category || '');
+      setSearchStatus(result.status);
+      if (result.photoQuery) setPhotoQuery(result.photoQuery);
+      if (result.cachedPhotos) {
+        setPhotoCandidates(result.cachedPhotos);
+      } else if (result.photoQuery) {
+        loadPhotoCandidates(trimmed, result.photoQuery);
+      }
+      // Only auto-fill the photo if the user hasn't already picked one —
+      // never clobber a manually chosen or existing (edit-mode) photo.
+      if (result.externalImageUrl && !photoFile && !existingPhotoBase64) {
+        const imageFile = await fetchExternalProductImage(result.externalImageUrl);
+        if (imageFile) {
+          setPhotoFile(imageFile);
+          setPreviewUrl(URL.createObjectURL(imageFile));
         }
       }
     } catch (err) {

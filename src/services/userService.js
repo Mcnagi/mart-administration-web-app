@@ -17,6 +17,21 @@ export function defaultDisplayNameFromEmail(email) {
   return (email || '').split('@')[0];
 }
 
+// Display name for whoever uploaded an item, for the item form's "uploaded
+// by" line. A profile may have been removed (revokeUser deletes it rather
+// than the underlying Auth account) — falls back silently to no name rather
+// than surfacing an error, since a missing uploader isn't itself a problem.
+export async function resolveUploaderDisplayName(ownerId) {
+  if (!ownerId) return null;
+  try {
+    const profile = await usersApi.getUserProfile(ownerId);
+    if (!profile) return null;
+    return profile.displayName || defaultDisplayNameFromEmail(profile.email);
+  } catch {
+    return null;
+  }
+}
+
 function randomTempPassword() {
   // Shown once to the admin to hand off to the new user; the user should
   // change it after first login (see authService.changePassword). A fixed
