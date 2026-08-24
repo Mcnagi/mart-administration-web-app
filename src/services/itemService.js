@@ -129,7 +129,7 @@ export function subscribeItems(onData, onError) {
 
 // `input` may include a raw File under `photoFile`; every field is optional.
 export async function saveItem(
-  { id, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
+  { id, name, quantity, salePrice, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
   ownerId
 ) {
   let photoBase64 = existingPhotoBase64 ?? '';
@@ -144,6 +144,7 @@ export async function saveItem(
 
   const payload = {
     quantity: quantity === '' || quantity === undefined || quantity === null ? '' : Number(quantity),
+    salePrice: salePrice === '' || salePrice === undefined || salePrice === null ? '' : Number(salePrice),
     expiryDate: expiryDate ?? '',
     branch: branch ?? '',
     note: (note ?? '').trim(),

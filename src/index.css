@@ -246,6 +246,36 @@ h1, h2, h3 {
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
+/* Scan action embedded in the middle of the tab bar — an accent-filled
+   circle so it reads as an action (like the FAB) rather than another
+   destination tab, without leaving the centered pill. */
+.bottom-nav-scan {
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 2px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.45);
+  transition: transform 0.15s ease;
+}
+
+.bottom-nav-scan svg {
+  width: 17px;
+  height: 17px;
+}
+
+.bottom-nav-scan:active {
+  transform: scale(0.92);
+}
+
 .bottom-nav-item {
   flex: 0 0 auto;
   display: flex;
@@ -581,6 +611,39 @@ textarea:focus {
 .form-actions {
   display: flex;
   gap: 12px;
+}
+
+.form-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 4px 0 -8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.photo-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.photo-field-label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.photo-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.photo-upload-btn input[type="file"] {
+  display: none;
 }
 
 .import-hint {

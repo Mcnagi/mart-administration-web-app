@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
 import { saveItem, removeItem } from '../services/itemService';
@@ -27,11 +27,13 @@ export default function ItemFormPage() {
   const { itemId } = useParams();
   const isEditing = !!itemId;
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, profile } = useAuth();
   const { t, language } = useTranslation();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [salePrice, setSalePrice] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [branch, setBranch] = useState('');
   const [category, setCategory] = useState('');
@@ -75,6 +77,7 @@ export default function ItemFormPage() {
         }
         setName(item.name || '');
         setQuantity(item.quantity ?? '');
+        setSalePrice(item.salePrice ?? '');
         setExpiryDate(item.expiryDate || '');
         setBranch(item.branch || '');
         setCategory(item.category || '');
@@ -107,6 +110,19 @@ export default function ItemFormPage() {
     // branch) — deliberately excluded so later profile refreshes don't
     // clobber a branch the user has already picked in this form.
   }, [itemId, isEditing]);
+
+  // Arrived here from the bottom bar's scan button (see NavBar), which opens
+  // the camera and hands off the detected barcode via navigation state rather
+  // than duplicating the lookup logic below. Runs once on mount; only new
+  // items can arrive this way.
+  useEffect(() => {
+    if (isEditing) return;
+    const scannedBarcode = location.state?.barcode;
+    if (!scannedBarcode) return;
+    setBarcode(scannedBarcode);
+    handleSearch(scannedBarcode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];
@@ -143,8 +159,11 @@ export default function ItemFormPage() {
     }
   }
 
-  async function handleSearch() {
-    const trimmed = barcode.trim();
+  async function handleSearch(codeOverride) {
+    // The Search button's onClick passes it directly, so a click event may
+    // arrive here too — only a real string override (from the scan handoff
+    // above) should take precedence over the barcode field's own state.
+    const trimmed = (typeof codeOverride === 'string' && codeOverride ? codeOverride : barcode).trim();
     if (!trimmed) return;
     setSearching(true);
     setSearchResult(null);
@@ -243,7 +262,19 @@ export default function ItemFormPage() {
     setSaving(true);
     try {
       await saveItem(
-        { id: itemId, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
+        {
+          id: itemId,
+          name,
+          quantity,
+          salePrice,
+          expiryDate,
+          branch,
+          category,
+          note,
+          barcode,
+          photoFile,
+          existingPhotoBase64,
+        },
         user.uid
       );
       navigate('/');
@@ -364,15 +395,71 @@ export default function ItemFormPage() {
             />
           </label>
         )}
-        <label className="label-inline">
-          {t('itemForm.photo')}
-          <input type="file" accept="image/*" onChange={handlePhotoChange} />
-        </label>
-        {previewUrl && (
-          <div className="photo-preview">
-            <img src={previewUrl} alt={t('itemForm.previewAlt')} />
-          </div>
+        {!searchResult && (
+          <label>
+            {t('itemForm.category')}
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder={t('itemForm.categoryPlaceholder')}
+            />
+          </label>
         )}
+        <label className="label-inline">
+          {t('itemForm.salePrice')}
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={salePrice}
+            onChange={(e) => setSalePrice(e.target.value)}
+            placeholder={t('itemForm.salePricePlaceholder')}
+          />
+        </label>
+        <label className="label-inline">
+          {t('itemForm.quantity')}
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            placeholder={t('itemForm.quantityPlaceholder')}
+          />
+        </label>
+        {BRANCHES.length > 0 && (
+          <label className="label-inline">
+            {t('itemForm.branch')}
+            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <option value="">{t('itemForm.noBranchOption')}</option>
+              {BRANCHES.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <div className="form-section-label">{t('itemForm.optionalSectionTitle')}</div>
+
+        <label className="label-inline">
+          {t('itemForm.expiryDate')}
+          <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+        </label>
+        <div className="photo-field">
+          <span className="photo-field-label">{t('itemForm.photo')}</span>
+          {previewUrl && (
+            <div className="photo-preview">
+              <img src={previewUrl} alt={t('itemForm.previewAlt')} />
+            </div>
+          )}
+          <label className="btn-outline photo-upload-btn">
+            {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
+            <input type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+          </label>
+        </div>
         {SHOW_SEARCH_PHOTOS_BUTTON && photoQuery && (
           <button
             type="button"
@@ -400,45 +487,6 @@ export default function ItemFormPage() {
               ))}
             </div>
           </div>
-        )}
-        <label className="label-inline">
-          {t('itemForm.quantity')}
-          <input
-            type="number"
-            min="0"
-            step="any"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder={t('itemForm.quantityPlaceholder')}
-          />
-        </label>
-        <label className="label-inline">
-          {t('itemForm.expiryDate')}
-          <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-        </label>
-        {!searchResult && (
-          <label>
-            {t('itemForm.category')}
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder={t('itemForm.categoryPlaceholder')}
-            />
-          </label>
-        )}
-        {BRANCHES.length > 0 && (
-          <label className="label-inline">
-            {t('itemForm.branch')}
-            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">{t('itemForm.noBranchOption')}</option>
-              {BRANCHES.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </label>
         )}
         <label>
           {t('itemForm.note')}

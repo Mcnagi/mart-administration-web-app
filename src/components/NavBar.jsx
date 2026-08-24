@@ -1,18 +1,31 @@
-import { NavLink } from 'react-router-dom';
+import { lazy, Suspense, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import { APP_NAME } from '../appConfig';
-import { ItemsIcon, AddIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon } from './icons';
+import { ItemsIcon, AddIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
+import LoadingSpinner from './LoadingSpinner';
+
+// Lazy-loaded for the same reason as in ItemFormPage: pulls in @zxing/browser,
+// only needed by the minority of visits that tap the bottom-bar scan button.
+const BarcodeScanner = lazy(() => import('./BarcodeScanner'));
 
 export default function NavBar() {
   const { profile, isAdmin } = useAuth();
   const { selecting } = useSelection();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [scanning, setScanning] = useState(false);
   const displayName = profile && (profile.displayName || defaultDisplayNameFromEmail(profile.email));
+
+  function handleBarcodeDetected(code) {
+    setScanning(false);
+    navigate('/add', { state: { barcode: code } });
+  }
 
   return (
     <>
@@ -37,6 +50,16 @@ export default function NavBar() {
               <PromoIcon />
               <span>{t('nav.promos')}</span>
             </NavLink>
+
+            <button
+              type="button"
+              className="bottom-nav-scan"
+              onClick={() => setScanning(true)}
+              aria-label={t('nav.scanItem')}
+            >
+              <BarcodeIcon />
+            </button>
+
             {isAdmin && (
               <NavLink to="/admin" className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
                 <AdminIcon />
@@ -57,6 +80,12 @@ export default function NavBar() {
             <AddIcon />
           </NavLink>
         </>
+      )}
+
+      {scanning && (
+        <Suspense fallback={<LoadingSpinner />}>
+          <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setScanning(false)} />
+        </Suspense>
       )}
     </>
   );
