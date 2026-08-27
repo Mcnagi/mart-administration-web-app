@@ -31,6 +31,15 @@ export async function savePhotosForBarcode(barcode, images) {
   writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
 }
 
+// Caches the single photo an item was actually saved with, on the same doc,
+// so the next item scanned with this barcode finds it already attached
+// (see itemService.saveItem) — separate from `photos` above, which is just
+// a list of search candidates to pick from, not a settled choice.
+export async function savePhotoForBarcode(barcode, photoBase64) {
+  await setDoc(doc(dataCol, barcode), { barcode, photo: photoBase64 }, { merge: true });
+  writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
+}
+
 function fieldsUnchanged(existing, fields) {
   return existing != null && Object.keys(fields).every((key) => existing[key] === fields[key]);
 }

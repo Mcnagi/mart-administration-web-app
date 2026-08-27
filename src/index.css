@@ -174,8 +174,7 @@ h1, h2, h3 {
 }
 
 /* Frosted, translucent pill that floats over page content, with a soft top
-   highlight to read as a glass surface rather than a flat panel. Sized to
-   fit its items and centered independently of the separate Add FAB. */
+   highlight to read as a glass surface rather than a flat panel. */
 .bottom-nav {
   position: fixed;
   left: 50%;
@@ -206,44 +205,6 @@ h1, h2, h3 {
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       inset 0 -1px 0 rgba(0, 0, 0, 0.3);
   }
-}
-
-/* Add button: a solid, elevated FAB set apart from the glass bar so it
-   reads as the primary action, not just another tab. Pinned to the
-   bottom-right corner independently of the centered tab bar. */
-.fab {
-  position: fixed;
-  right: 16px;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  text-decoration: none;
-  box-shadow:
-    0 8px 20px rgba(124, 58, 237, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transition: transform 0.15s ease;
-}
-
-.fab svg {
-  width: 21px;
-  height: 21px;
-}
-
-.fab:active {
-  transform: scale(0.94);
-}
-
-.fab.active {
-  box-shadow:
-    0 8px 20px rgba(124, 58, 237, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 /* Scan action embedded in the middle of the tab bar — an accent-filled
@@ -576,7 +537,8 @@ h1, h2, h3 {
 }
 
 .item-form label.label-inline > input,
-.item-form label.label-inline > select {
+.item-form label.label-inline > select,
+.item-form label.label-inline > .barcode-input-row {
   flex: 1;
   min-width: 0;
 }
@@ -613,17 +575,6 @@ textarea:focus {
   gap: 12px;
 }
 
-.form-section-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  margin: 4px 0 -8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
 .photo-field {
   display: flex;
   flex-direction: column;
@@ -644,6 +595,43 @@ textarea:focus {
 
 .photo-upload-btn input[type="file"] {
   display: none;
+}
+
+.item-details-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.item-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.item-details-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.item-details-chevron.open {
+  transform: rotate(90deg);
+}
+
+.item-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .import-hint {
@@ -811,11 +799,30 @@ textarea:focus {
   pointer-events: none;
 }
 
+.barcode-scanner-manual-link {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: #fff;
+  text-decoration: underline;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.barcode-scanner-viewport .barcode-scanner-manual-link {
+  position: absolute;
+  left: 50%;
+  bottom: calc(20% - 40px);
+  transform: translateX(-50%);
+}
+
 .barcode-scanner-error {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 24px;
   text-align: center;
 }
@@ -1587,7 +1594,6 @@ textarea:focus {
 @media print {
   .top-bar,
   .bottom-nav,
-  .fab,
   .no-print {
     display: none !important;
   }

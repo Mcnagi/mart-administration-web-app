@@ -74,11 +74,12 @@ service cloud.firestore {
 
     // Imported product rows, keyed by barcode. Also holds a `photos` field
     // per doc caching candidate product images found via search (see
-    // services/photoSearchService.js) — any active user can look those up
-    // or refresh the cache while adding items via the item form's barcode
-    // search, not just admins (the bulk Excel import UI stays admin-only at
-    // the route level in App.jsx, even though this rule no longer enforces
-    // that at the data layer too).
+    // services/photoSearchService.js), and a `photo` field caching whichever
+    // one an item was actually saved with (see itemService.saveItem) — any
+    // active user can look those up or refresh the cache while adding items
+    // via the item form's barcode search, not just admins (the bulk Excel
+    // import UI stays admin-only at the route level in App.jsx, even though
+    // this rule no longer enforces that at the data layer too).
     match /data/{docId} {
       allow read, write: if isActive();
     }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -12,8 +12,8 @@ import {
 import { findProductPhotos } from '../services/photoSearchService';
 import { resolveUploaderDisplayName } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ItemDetailsFields from '../components/ItemDetailsFields';
 import { BackIcon, BarcodeIcon } from '../components/icons';
-import { BRANCHES } from '../appConfig';
 
 // Lazy-loaded: pulls in @zxing/browser, which is sizable and only needed by
 // the minority of visits that actually tap "Scan".
@@ -35,7 +35,6 @@ export default function ItemFormPage() {
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [salePrice, setSalePrice] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [branch, setBranch] = useState('');
   const [category, setCategory] = useState('');
@@ -77,7 +76,6 @@ export default function ItemFormPage() {
         }
         setName(item.name || '');
         setQuantity(item.quantity ?? '');
-        setSalePrice(item.salePrice ?? '');
         setExpiryDate(item.expiryDate || '');
         setBranch(item.branch || '');
         setCategory(item.category || '');
@@ -124,6 +122,7 @@ export default function ItemFormPage() {
   function handleBarcodeDetected(code) {
     setBarcode(code);
     setScanning(false);
+    handleSearch(code);
   }
 
   function handlePickCandidate(base64) {
@@ -176,7 +175,10 @@ export default function ItemFormPage() {
       }
       // Only auto-fill the photo if the user hasn't already picked one —
       // never clobber a manually chosen or existing (edit-mode) photo.
-      if (result.externalImageUrl && !photoFile && !existingPhotoBase64) {
+      if (result.canonicalPhoto && !photoFile && !existingPhotoBase64) {
+        setExistingPhotoBase64(result.canonicalPhoto);
+        setPreviewUrl(result.canonicalPhoto);
+      } else if (result.externalImageUrl && !photoFile && !existingPhotoBase64) {
         const imageFile = await fetchExternalProductImage(result.externalImageUrl);
         if (imageFile) {
           setPhotoFile(imageFile);
@@ -220,7 +222,6 @@ export default function ItemFormPage() {
           id: itemId,
           name,
           quantity,
-          salePrice,
           expiryDate,
           branch,
           category,
@@ -253,6 +254,17 @@ export default function ItemFormPage() {
 
   if (loading) return <LoadingSpinner />;
 
+  const searchResultRows = searchResult
+    ? [
+        { label: t('itemForm.brand'), value: searchResult.brand },
+        { label: t('itemForm.name'), value: searchResult.product },
+        { label: t('itemForm.altName'), value: searchResult.product2 },
+        { label: t('itemForm.maker'), value: searchResult.maker },
+        { label: t('itemForm.packageSize'), value: searchResult.quantity },
+        { label: t('itemForm.category'), value: category },
+      ].filter((row) => row.value)
+    : [];
+
   return (
     <div className="page">
       <div className="page-header">
@@ -274,7 +286,7 @@ export default function ItemFormPage() {
         </Link>
       )}
       <form className="item-form" onSubmit={handleSubmit}>
-        <label>
+        <label className="label-inline">
           {t('itemForm.barcode')}
           <div className="barcode-input-row">
             <input
@@ -292,25 +304,25 @@ export default function ItemFormPage() {
               <BarcodeIcon />
             </button>
           </div>
-          <div className="barcode-actions-row">
-            <button
-              type="button"
-              className="btn-outline barcode-scan-btn"
-              onClick={handleSearch}
-              disabled={!barcode.trim() || searching}
-            >
-              {searching ? t('itemForm.searching') : t('itemForm.search')}
-            </button>
-            <button
-              type="button"
-              className="btn-outline barcode-scan-btn"
-              onClick={handleClearSearch}
-              disabled={!barcode && !searchResult && !searchStatus}
-            >
-              {t('itemForm.clearSearch')}
-            </button>
-          </div>
         </label>
+        <div className="barcode-actions-row">
+          <button
+            type="button"
+            className="btn-outline barcode-scan-btn"
+            onClick={handleSearch}
+            disabled={!barcode.trim() || searching}
+          >
+            {searching ? t('itemForm.searching') : t('itemForm.search')}
+          </button>
+          <button
+            type="button"
+            className="btn-outline barcode-scan-btn"
+            onClick={handleClearSearch}
+            disabled={!barcode && !searchResult && !searchStatus}
+          >
+            {t('itemForm.clearSearch')}
+          </button>
+        </div>
         {searchStatus && (
           <p className="search-status">
             {searchStatus === 'found' && t('itemForm.searchFound')}
@@ -319,153 +331,59 @@ export default function ItemFormPage() {
             {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
           </p>
         )}
-        {searchResult ? (
+        {searchResult && (
           <div className="search-product-card">
-            {searchResult.brand && (
-              <>
-                <span className="search-product-name-label">{t('itemForm.brand')}</span>
-                <span className="search-product-line">{searchResult.brand}</span>
-              </>
-            )}
-            <span className="search-product-name-label">{t('itemForm.name')}</span>
-            <span className="search-product-line">
-              {[searchResult.product, searchResult.quantity || searchResult.product2].filter(Boolean).join(' ')}
-            </span>
-            {category && (
-              <>
-                <span className="search-product-name-label">{t('itemForm.category')}</span>
-                <span className="search-product-line">{category}</span>
-              </>
-            )}
-          </div>
-        ) : (
-          <label>
-            {t('itemForm.name')}
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('itemForm.namePlaceholder')}
-            />
-          </label>
-        )}
-        {!searchResult && (
-          <label>
-            {t('itemForm.category')}
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder={t('itemForm.categoryPlaceholder')}
-            />
-          </label>
-        )}
-        <label className="label-inline">
-          {t('itemForm.salePrice')}
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={salePrice}
-            onChange={(e) => setSalePrice(e.target.value)}
-            placeholder={t('itemForm.salePricePlaceholder')}
-          />
-        </label>
-        <label className="label-inline">
-          {t('itemForm.quantity')}
-          <input
-            type="number"
-            min="0"
-            step="any"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder={t('itemForm.quantityPlaceholder')}
-          />
-        </label>
-        {BRANCHES.length > 0 && (
-          <label className="label-inline">
-            {t('itemForm.branch')}
-            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">{t('itemForm.noBranchOption')}</option>
-              {BRANCHES.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        <div className="form-section-label">{t('itemForm.optionalSectionTitle')}</div>
-
-        <label className="label-inline">
-          {t('itemForm.expiryDate')}
-          <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-        </label>
-        <div className="photo-field">
-          <span className="photo-field-label">{t('itemForm.photo')}</span>
-          {previewUrl && (
-            <div className="photo-preview">
-              <img src={previewUrl} alt={t('itemForm.previewAlt')} />
-            </div>
-          )}
-          <label className="btn-outline photo-upload-btn">
-            {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
-            <input type="file" accept="image/*" onChange={handlePhotoChange} hidden />
-          </label>
-        </div>
-        {SHOW_SEARCH_PHOTOS_BUTTON && photoQuery && (
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={handleSearchPhotos}
-            disabled={loadingPhotoCandidates}
-          >
-            {loadingPhotoCandidates ? t('itemForm.searchingPhotos') : t('itemForm.searchPhotos')}
-          </button>
-        )}
-        {loadingPhotoCandidates && <p className="search-status">{t('itemForm.searchingPhotos')}</p>}
-        {photoCandidates.length > 0 && (
-          <div className="photo-candidates-wrap">
-            <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>
-            <div className="photo-candidates">
-              {photoCandidates.map((candidate, i) => (
-                <button
-                  type="button"
-                  key={i}
-                  className="photo-candidate"
-                  onClick={() => handlePickCandidate(candidate.base64)}
-                >
-                  <img src={candidate.base64} alt={t('itemForm.previewAlt')} />
-                </button>
-              ))}
-            </div>
+            {searchResultRows.map((row) => (
+              <Fragment key={row.label}>
+                <span className="search-product-name-label">{row.label}</span>
+                <span className="search-product-line">{row.value}</span>
+              </Fragment>
+            ))}
           </div>
         )}
-        <label>
-          {t('itemForm.note')}
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t('itemForm.notePlaceholder')}
-            rows={3}
-          />
-        </label>
+
+        <ItemDetailsFields
+          t={t}
+          hideNameCategory={!!searchResult}
+          name={name}
+          onNameChange={setName}
+          category={category}
+          onCategoryChange={setCategory}
+          quantity={quantity}
+          onQuantityChange={setQuantity}
+          branch={branch}
+          onBranchChange={setBranch}
+          expiryDate={expiryDate}
+          onExpiryDateChange={setExpiryDate}
+          note={note}
+          onNoteChange={setNote}
+          previewUrl={previewUrl}
+          onPhotoChange={handlePhotoChange}
+          photoCandidates={photoCandidates}
+          onPickCandidate={handlePickCandidate}
+          loadingPhotoCandidates={loadingPhotoCandidates}
+          showSearchPhotosButton={SHOW_SEARCH_PHOTOS_BUTTON}
+          photoQuery={photoQuery}
+          onSearchPhotos={handleSearchPhotos}
+          saving={saving}
+        />
+
         {error && <div className="form-error">{error}</div>}
-        <div className="form-actions">
-          <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? t('itemForm.saving') : t('itemForm.save')}
-          </button>
-          {isEditing && (
+        {isEditing && (
+          <div className="form-actions">
             <button type="button" className="btn-danger" onClick={handleDelete} disabled={saving}>
               {t('itemForm.delete')}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </form>
       {scanning && (
         <Suspense fallback={<LoadingSpinner />}>
-          <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setScanning(false)} />
+          <BarcodeScanner
+            onDetected={handleBarcodeDetected}
+            onClose={() => setScanning(false)}
+            onManualEntry={() => setScanning(false)}
+          />
         </Suspense>
       )}
     </div>

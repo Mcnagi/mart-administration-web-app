@@ -6,7 +6,7 @@ import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { defaultDisplayNameFromEmail } from '../services/userService';
 import { APP_NAME } from '../appConfig';
-import { ItemsIcon, AddIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon } from './icons';
+import { ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { scheduleIdle } from '../utils/idleSchedule';
@@ -32,6 +32,11 @@ export default function NavBar() {
   function handleBarcodeDetected(code) {
     setScanning(false);
     navigate('/add', { state: { barcode: code } });
+  }
+
+  function handleManualEntry() {
+    setScanning(false);
+    navigate('/add');
   }
 
   return (
@@ -82,16 +87,16 @@ export default function NavBar() {
               <span>{displayName ?? t('nav.account')}</span>
             </NavLink>
           </nav>
-
-          <NavLink to="/add" className={({ isActive }) => `fab${isActive ? ' active' : ''}`} aria-label={t('nav.addItem')}>
-            <AddIcon />
-          </NavLink>
         </>
       )}
 
       {scanning && (
         <Suspense fallback={<LoadingSpinner />}>
-          <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setScanning(false)} />
+          <BarcodeScanner
+            onDetected={handleBarcodeDetected}
+            onClose={() => setScanning(false)}
+            onManualEntry={handleManualEntry}
+          />
         </Suspense>
       )}
     </>

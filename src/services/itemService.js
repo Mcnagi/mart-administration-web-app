@@ -2,7 +2,7 @@
 // orchestrating the api + image services. Views should call only this file,
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
-import { getDataByBarcode } from '../api/dataApi';
+import { getDataByBarcode, savePhotoForBarcode } from '../api/dataApi';
 import { getExternalProductInfo, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { t } from '../i18n/i18n';
@@ -127,6 +127,7 @@ export async function searchProductByBarcode(barcode) {
       category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
       photoQuery: combined,
       cachedPhotos: row.photos?.length ? row.photos : null,
+      canonicalPhoto: row.photo || null,
       externalImageUrl: null,
     };
   }
@@ -146,6 +147,7 @@ export async function searchProductByBarcode(barcode) {
     category: info.category,
     photoQuery: null,
     cachedPhotos: null,
+    canonicalPhoto: row?.photo || null,
     externalImageUrl: null,
   };
   if (info.imageUrl) {
@@ -198,7 +200,7 @@ export function subscribeItems(onData, onError) {
 
 // `input` may include a raw File under `photoFile`; every field is optional.
 export async function saveItem(
-  { id, name, quantity, salePrice, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
+  { id, name, quantity, expiryDate, branch, category, note, barcode, photoFile, existingPhotoBase64 },
   ownerId
 ) {
   let photoBase64 = existingPhotoBase64 ?? '';
@@ -211,9 +213,17 @@ export async function saveItem(
 
   const trimmedBarcode = (barcode ?? '').trim();
 
+  // Every field is written onto the item itself — including name/category,
+  // even when a barcode search filled them in — so the items list can
+  // render a card straight off its own doc. The alternative (leaving them
+  // off and re-resolving from the `data` collection at read time, the way
+  // resolveProductName used to work) would trade one write here for one
+  // extra Firestore read per barcode item on every list load/subscription,
+  // which is far more expensive at read-heavy list-view scale.
   const payload = {
+    name: (name ?? '').trim(),
+    category: (category ?? '').trim(),
     quantity: quantity === '' || quantity === undefined || quantity === null ? '' : Number(quantity),
-    salePrice: salePrice === '' || salePrice === undefined || salePrice === null ? '' : Number(salePrice),
     expiryDate: expiryDate ?? '',
     branch: branch ?? '',
     note: (note ?? '').trim(),
@@ -221,12 +231,12 @@ export async function saveItem(
     photoBase64,
   };
 
-  // A barcode identifies the product via the `data` collection lookup, so
-  // name/category (already shown from that lookup) aren't duplicated onto
-  // the item itself.
-  if (!trimmedBarcode) {
-    payload.name = (name ?? '').trim();
-    payload.category = (category ?? '').trim();
+  // Best-effort: also cache the photo onto the shared `data/{barcode}` doc,
+  // so the next item scanned with this barcode already has it attached
+  // (see ItemFormPage's "use a different photo" flow). Failure here doesn't
+  // block saving the item itself.
+  if (trimmedBarcode && photoBase64) {
+    savePhotoForBarcode(trimmedBarcode, photoBase64).catch(() => {});
   }
 
   if (id) {
