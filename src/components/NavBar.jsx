@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
@@ -9,6 +9,7 @@ import { APP_NAME } from '../appConfig';
 import { ItemsIcon, AddIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
+import { scheduleIdle } from '../utils/idleSchedule';
 
 // Lazy-loaded for the same reason as in ItemFormPage: pulls in @zxing/browser,
 // only needed by the minority of visits that tap the bottom-bar scan button.
@@ -21,6 +22,12 @@ export default function NavBar() {
   const navigate = useNavigate();
   const [scanning, setScanning] = useState(false);
   const displayName = profile && (profile.displayName || defaultDisplayNameFromEmail(profile.email));
+
+  // NavBar mounts once for the whole authenticated app, so this is the one
+  // place to warm the scanner chunk: fetch it at idle time (after the app's
+  // own render/data work settles) so tapping "Scan" later resolves from the
+  // module cache instead of waiting on a fresh network fetch.
+  useEffect(() => scheduleIdle(() => { import('./BarcodeScanner'); }), []);
 
   function handleBarcodeDetected(code) {
     setScanning(false);
