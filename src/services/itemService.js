@@ -107,25 +107,23 @@ export async function fetchItemById(itemId) {
 // Drives the item form's barcode search button: checks our own imported
 // `data` collection first, falling back to Open Food Facts, and works out
 // what (if anything) needs to happen next for the product photo — a cached
-// candidate list, a fresh search, or an auto-fill from the external source's
-// own photo. The caller (ItemFormPage) owns all UI/loading state; this just
-// makes the found/not-found/source decision and hands back what to show.
+// candidate list (from a since-removed photo-search feature, see
+// api/dataApi.js) or an auto-fill from the external source's own photo.
+// The caller (ItemFormPage) owns all UI/loading state; this just makes the
+// found/not-found/source decision and hands back what to show.
 export async function searchProductByBarcode(barcode) {
   const trimmed = (barcode ?? '').trim();
   if (!trimmed) return null;
 
-  // A data/{barcode} doc can exist with only a cached `photos` field and no
-  // `product` name (e.g. left behind by an earlier Open Food Facts search
-  // below — see api/dataApi.savePhotosForBarcode), so a real imported-row
-  // match requires `product`, not just doc existence.
+  // A data/{barcode} doc can exist with only a legacy cached `photos` field
+  // and no `product` name (left behind by the old photo-search feature), so
+  // a real imported-row match requires `product`, not just doc existence.
   const row = await getDataByBarcode(trimmed);
   if (row?.product) {
-    const combined = [row.product, row.product2 || row.maker].filter(Boolean).join(' ');
     return {
       status: 'found',
       searchResult: row,
       category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
-      photoQuery: combined,
       cachedPhotos: row.photos?.length ? row.photos : null,
       canonicalPhoto: row.photo || null,
       externalImageUrl: null,
@@ -145,8 +143,7 @@ export async function searchProductByBarcode(barcode) {
     status: 'foundExternal',
     searchResult: { product: info.name, quantity: info.quantity, brand: info.brand },
     category: info.category,
-    photoQuery: null,
-    cachedPhotos: null,
+    cachedPhotos: row?.photos?.length ? row.photos : null,
     canonicalPhoto: row?.photo || null,
     externalImageUrl: null,
   };
@@ -154,12 +151,6 @@ export async function searchProductByBarcode(barcode) {
     // Caller only auto-fills this if the user hasn't already picked a photo —
     // never clobber a manually chosen or existing (edit-mode) photo.
     result.externalImageUrl = info.imageUrl;
-  } else {
-    // Open Food Facts has no photo on file — reuse a cached search (row may
-    // be the bare photos-only stub described above), or let the caller run a
-    // fresh image search using its English name.
-    result.photoQuery = info.nameEn || info.name;
-    result.cachedPhotos = row?.photos?.length ? row.photos : null;
   }
   return result;
 }

@@ -9,7 +9,6 @@ import {
   searchProductByBarcode,
   fetchExternalProductImage,
 } from '../services/itemService';
-import { findProductPhotos } from '../services/photoSearchService';
 import { resolveUploaderDisplayName } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ItemDetailsFields from '../components/ItemDetailsFields';
@@ -18,12 +17,6 @@ import { BackIcon, BarcodeIcon } from '../components/icons';
 // Lazy-loaded: pulls in @zxing/browser, which is sizable and only needed by
 // the minority of visits that actually tap "Scan".
 const BarcodeScanner = lazy(() => import('../components/BarcodeScanner'));
-
-// Hidden while the Google Custom Search API key setup is still being sorted
-// out (billing account issue) — flip back on once VITE_GOOGLE_CSE_API_KEY
-// is confirmed working. The automatic photo search on barcode lookup stays
-// on regardless; it fails silently to an empty result set until then.
-const SHOW_SEARCH_PHOTOS_BUTTON = false;
 
 export default function ItemFormPage() {
   const { itemId } = useParams();
@@ -48,12 +41,10 @@ export default function ItemFormPage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
+  // Candidates come only from a legacy cached `photos` field on the data
+  // doc (see itemService.searchProductByBarcode) — nothing searches for new
+  // ones anymore (the photo-search feature was removed).
   const [photoCandidates, setPhotoCandidates] = useState([]);
-  const [loadingPhotoCandidates, setLoadingPhotoCandidates] = useState(false);
-  // Combined English + Korean name from the last barcode search, kept
-  // around so the manual "Search photos" button can re-run (or force a
-  // fresh run past the cache) without redoing the barcode lookup.
-  const [photoQuery, setPhotoQuery] = useState('');
   const [uploaderName, setUploaderName] = useState('');
   const [uploadedAt, setUploadedAt] = useState(null);
   const [loading, setLoading] = useState(isEditing);
@@ -132,21 +123,6 @@ export default function ItemFormPage() {
     setPhotoCandidates([]);
   }
 
-  // Best-effort search for candidate product photos, run separately from
-  // handleSearch's own loading state so it doesn't hold up re-enabling the
-  // Search button — see services/photoSearchService.findProductPhotos.
-  async function loadPhotoCandidates(barcodeValue, query) {
-    setLoadingPhotoCandidates(true);
-    try {
-      const images = await findProductPhotos(barcodeValue, query);
-      setPhotoCandidates(images);
-    } catch {
-      setPhotoCandidates([]);
-    } finally {
-      setLoadingPhotoCandidates(false);
-    }
-  }
-
   async function handleSearch(codeOverride) {
     // The Search button's onClick passes it directly, so a click event may
     // arrive here too — only a real string override (from the scan handoff
@@ -167,11 +143,8 @@ export default function ItemFormPage() {
       setSearchResult(result.searchResult);
       setCategory(result.category || '');
       setSearchStatus(result.status);
-      if (result.photoQuery) setPhotoQuery(result.photoQuery);
       if (result.cachedPhotos) {
         setPhotoCandidates(result.cachedPhotos);
-      } else if (result.photoQuery) {
-        loadPhotoCandidates(trimmed, result.photoQuery);
       }
       // Only auto-fill the photo if the user hasn't already picked one —
       // never clobber a manually chosen or existing (edit-mode) photo.
@@ -200,16 +173,6 @@ export default function ItemFormPage() {
     setSearchErrorMessage('');
     setCategory('');
     setPhotoCandidates([]);
-    setLoadingPhotoCandidates(false);
-    setPhotoQuery('');
-  }
-
-  // Manual re-run of the Google image search, past whatever's cached on the
-  // data doc — for when the automatic candidates (or the cache) aren't good
-  // enough and the user wants fresh results.
-  function handleSearchPhotos() {
-    if (!photoQuery || loadingPhotoCandidates) return;
-    loadPhotoCandidates(barcode.trim(), photoQuery);
   }
 
   async function handleSubmit(e) {
@@ -361,10 +324,6 @@ export default function ItemFormPage() {
           onPhotoChange={handlePhotoChange}
           photoCandidates={photoCandidates}
           onPickCandidate={handlePickCandidate}
-          loadingPhotoCandidates={loadingPhotoCandidates}
-          showSearchPhotosButton={SHOW_SEARCH_PHOTOS_BUTTON}
-          photoQuery={photoQuery}
-          onSearchPhotos={handleSearchPhotos}
           saving={saving}
         />
 

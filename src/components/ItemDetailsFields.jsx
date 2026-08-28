@@ -24,10 +24,6 @@ export default function ItemDetailsFields({
   onPhotoChange,
   photoCandidates,
   onPickCandidate,
-  loadingPhotoCandidates,
-  showSearchPhotosButton,
-  photoQuery,
-  onSearchPhotos,
   saving,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -119,17 +115,6 @@ export default function ItemDetailsFields({
               <input type="file" accept="image/*" onChange={onPhotoChange} hidden />
             </label>
           </div>
-          {showSearchPhotosButton && photoQuery && (
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={onSearchPhotos}
-              disabled={loadingPhotoCandidates}
-            >
-              {loadingPhotoCandidates ? t('itemForm.searchingPhotos') : t('itemForm.searchPhotos')}
-            </button>
-          )}
-          {loadingPhotoCandidates && <p className="search-status">{t('itemForm.searchingPhotos')}</p>}
           {photoCandidates.length > 0 && (
             <div className="photo-candidates-wrap">
               <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>

@@ -80,30 +80,3 @@ export async function fileToCompressedBase64(file) {
   });
 }
 
-// Small, low-quality budget for photo-search candidates: several of these
-// need to fit in one `photos/{barcode}` doc together, well under Firestore's
-// 1 MiB limit (see services/photoSearchService.js).
-const THUMB_MAX_DIMENSION = 400;
-const THUMB_JPEG_QUALITY = 0.6;
-const THUMB_MAX_BASE64_BYTES = 120 * 1024;
-
-// Fetches an image URL and returns it as a compressed base64 data URL, or
-// null if the fetch fails, the response isn't an image, or (most commonly)
-// the host doesn't allow cross-origin reads of the pixel data. Errors are
-// swallowed since this backs a best-effort multi-candidate search — a
-// candidate that can't be fetched is just dropped, not surfaced.
-export async function fetchImageAsThumbnailBase64(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    if (!blob.type.startsWith('image/')) return null;
-    return await compressBlobToBase64(blob, {
-      maxDimension: THUMB_MAX_DIMENSION,
-      quality: THUMB_JPEG_QUALITY,
-      maxBytes: THUMB_MAX_BASE64_BYTES,
-    });
-  } catch {
-    return null;
-  }
-}

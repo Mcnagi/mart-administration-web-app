@@ -16,25 +16,12 @@ export async function getDataByBarcode(barcode) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-// Caches candidate product photos (found via services/photoSearchService)
-// as a `photos` field on the same doc as the imported row, keyed by the
-// same barcode — so barcode lookup and its photos always move together,
-// and re-importing the spreadsheet (see upsertRowsByBarcode below) never
-// touches this field since it writes with `merge: true` and never includes
-// `photos` in its own field set. Also the only way a `data/{barcode}` doc
-// gets created for a barcode that isn't in the imported spreadsheet at all
-// (see services/itemService/ItemFormPage's Open Food Facts fallback) — such
-// a doc has no `product` field, so callers must check for that before
-// treating a hit here as a real imported-row match.
-export async function savePhotosForBarcode(barcode, images) {
-  await setDoc(doc(dataCol, barcode), { barcode, photos: images }, { merge: true });
-  writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
-}
-
 // Caches the single photo an item was actually saved with, on the same doc,
 // so the next item scanned with this barcode finds it already attached
-// (see itemService.saveItem) — separate from `photos` above, which is just
-// a list of search candidates to pick from, not a settled choice.
+// (see itemService.saveItem). Some older docs may also carry a `photos`
+// field — search candidates cached by a since-removed photo-search feature
+// — which itemService.searchProductByBarcode still reads if present, but
+// nothing writes it anymore.
 export async function savePhotoForBarcode(barcode, photoBase64) {
   await setDoc(doc(dataCol, barcode), { barcode, photo: photoBase64 }, { merge: true });
   writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
