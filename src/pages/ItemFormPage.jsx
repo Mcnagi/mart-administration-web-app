@@ -134,6 +134,14 @@ export default function ItemFormPage() {
     setSearchStatus('');
     setSearchErrorMessage('');
     setPhotoCandidates([]);
+    // A new search means a (possibly different) product, so whatever photo
+    // was showing before — manually picked, from a prior search, or the
+    // item's existing saved photo — no longer necessarily belongs to it.
+    // Clear it up front rather than only overwriting on a hit, so a barcode
+    // with no photo of its own doesn't leave a stale one on screen.
+    setPhotoFile(null);
+    setExistingPhotoBase64('');
+    setPreviewUrl('');
     try {
       const result = await searchProductByBarcode(trimmed);
       if (!result || result.status === 'notFound') {
@@ -146,12 +154,10 @@ export default function ItemFormPage() {
       if (result.cachedPhotos) {
         setPhotoCandidates(result.cachedPhotos);
       }
-      // Only auto-fill the photo if the user hasn't already picked one —
-      // never clobber a manually chosen or existing (edit-mode) photo.
-      if (result.canonicalPhoto && !photoFile && !existingPhotoBase64) {
+      if (result.canonicalPhoto) {
         setExistingPhotoBase64(result.canonicalPhoto);
         setPreviewUrl(result.canonicalPhoto);
-      } else if (result.externalImageUrl && !photoFile && !existingPhotoBase64) {
+      } else if (result.externalImageUrl) {
         const imageFile = await fetchExternalProductImage(result.externalImageUrl);
         if (imageFile) {
           setPhotoFile(imageFile);
@@ -228,6 +234,42 @@ export default function ItemFormPage() {
       ].filter((row) => row.value)
     : [];
 
+  // Shown inside the search-product-card once a search has found something,
+  // so the photo sits with the rest of that product's details; otherwise
+  // rendered standalone in the same spot, since photo upload doesn't
+  // require a search to have run.
+  const photoSection = (
+    <div className="photo-field">
+      <span className="photo-field-label">{t('itemForm.photo')}</span>
+      {previewUrl && (
+        <div className="photo-preview">
+          <img src={previewUrl} alt={t('itemForm.previewAlt')} />
+        </div>
+      )}
+      <label className="btn-outline photo-upload-btn">
+        {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
+        <input type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+      </label>
+      {photoCandidates.length > 0 && (
+        <div className="photo-candidates-wrap">
+          <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>
+          <div className="photo-candidates">
+            {photoCandidates.map((candidate, i) => (
+              <button
+                type="button"
+                key={i}
+                className="photo-candidate"
+                onClick={() => handlePickCandidate(candidate.base64)}
+              >
+                <img src={candidate.base64} alt={t('itemForm.previewAlt')} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="page">
       <div className="page-header">
@@ -294,7 +336,7 @@ export default function ItemFormPage() {
             {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
           </p>
         )}
-        {searchResult && (
+        {searchResult ? (
           <div className="search-product-card">
             {searchResultRows.map((row) => (
               <Fragment key={row.label}>
@@ -302,7 +344,10 @@ export default function ItemFormPage() {
                 <span className="search-product-line">{row.value}</span>
               </Fragment>
             ))}
+            {photoSection}
           </div>
+        ) : (
+          photoSection
         )}
 
         <ItemDetailsFields
@@ -320,10 +365,6 @@ export default function ItemFormPage() {
           onExpiryDateChange={setExpiryDate}
           note={note}
           onNoteChange={setNote}
-          previewUrl={previewUrl}
-          onPhotoChange={handlePhotoChange}
-          photoCandidates={photoCandidates}
-          onPickCandidate={handlePickCandidate}
           saving={saving}
         />
 

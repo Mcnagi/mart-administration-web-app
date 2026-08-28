@@ -20,10 +20,6 @@ export default function ItemDetailsFields({
   onExpiryDateChange,
   note,
   onNoteChange,
-  previewUrl,
-  onPhotoChange,
-  photoCandidates,
-  onPickCandidate,
   saving,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -103,35 +99,6 @@ export default function ItemDetailsFields({
             />
           </label>
 
-          <div className="photo-field">
-            <span className="photo-field-label">{t('itemForm.photo')}</span>
-            {previewUrl && (
-              <div className="photo-preview">
-                <img src={previewUrl} alt={t('itemForm.previewAlt')} />
-              </div>
-            )}
-            <label className="btn-outline photo-upload-btn">
-              {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
-              <input type="file" accept="image/*" onChange={onPhotoChange} hidden />
-            </label>
-          </div>
-          {photoCandidates.length > 0 && (
-            <div className="photo-candidates-wrap">
-              <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>
-              <div className="photo-candidates">
-                {photoCandidates.map((candidate, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    className="photo-candidate"
-                    onClick={() => onPickCandidate(candidate.base64)}
-                  >
-                    <img src={candidate.base64} alt={t('itemForm.previewAlt')} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? t('itemForm.saving') : t('itemForm.save')}
           </button>
