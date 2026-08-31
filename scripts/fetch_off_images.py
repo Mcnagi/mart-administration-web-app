@@ -25,10 +25,42 @@ but a 429 (rate limited) response is retried with backoff and, if it keeps
 happening, prints one visible warning and slows the whole run down rather
 than staying silent about it.
 
+A barcode that still fails after retries because of a network problem or an
+HTTP 429 (as opposed to a confirmed "not on Open Food Facts") is recorded to
+--failed-output (defaults to <output>.failed.json) with its failure reason
+and timestamp, so it can be targeted for a later retry instead of only
+showing up in the end-of-run console summary. A barcode that later succeeds
+or resolves to a confirmed miss is removed from this file.
+
 A checkpoint file (--checkpoint, defaults to <output>.checkpoint) records how
 many rows of the CSV have been fully attempted, so simply re-running the same
 command later picks up where it left off -- no flag needed. Pass --restart to
 ignore it and start from row 0 again.
+
+Open Food Facts' product-read API is limited to 15 req/min per IP
+(https://openfoodfacts.github.io/openfoodfacts-server/api/); exceeding it
+risks an IP ban with no fixed cooldown. Pass --csv-export to sidestep this
+for large barcode lists: it first streams OFF's bulk CSV export
+(en.openfoodfacts.org.products.csv.gz, ~1.2GB compressed) in a single
+request and pulls image_url for every barcode found there -- no per-barcode
+API calls at all for those. Only barcodes the export doesn't cover (e.g.
+added after it was generated) fall back to the live per-barcode API as
+before. The export is streamed and decompressed on the fly, never written
+to disk or held in memory in full. If you already have a copy of the export
+on disk (e.g. the plain, uncompressed en.openfoodfacts.org.products.csv from
+https://world.openfoodfacts.org/data), pass --csv-export-file pointing at it
+instead -- this reads it directly with no network request for this step at
+all, and implies --csv-export.
+
+By default, a barcode the export doesn't cover still falls back to the live
+per-barcode API. Pass --csv-export-only to skip that fallback instead --
+such a barcode is then treated as not found with zero live API traffic,
+at the cost of never resolving anything the export missed (added since it
+was generated, or a barcode outside OFF's export in the first place).
+
+Note the bulk export itself is tab-delimited despite the .csv extension --
+--barcode-column for it is "code", not "barcode". This is auto-detected if
+you point --input directly at it too.
 
 Usage:
     python scripts/fetch_off_images.py --input barcodes.csv
@@ -37,10 +69,15 @@ Usage:
     python scripts/fetch_off_images.py --input barcodes.csv             # re-run: auto-resumes from checkpoint
     python scripts/fetch_off_images.py --input barcodes.csv --restart   # ignore checkpoint, start over
     python scripts/fetch_off_images.py --input barcodes.csv --resume    # also skip barcodes already in --output
+    python scripts/fetch_off_images.py --input barcodes.csv --csv-export  # resolve most barcodes from a freshly streamed bulk export
+    python scripts/fetch_off_images.py --input barcodes.csv --csv-export-file en.openfoodfacts.org.products.csv  # ...from an export already on disk
 """
 import argparse
 import base64
+import contextlib
 import csv
+import gzip
+import io
 import json
 import threading
 import time
@@ -48,6 +85,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -59,6 +97,11 @@ except ImportError:
 
 OFF_PRODUCT_ENDPOINT = "https://world.openfoodfacts.org/api/v2/product"
 OFF_FIELDS = "image_url"
+# Open Food Facts' bulk data export (see https://world.openfoodfacts.org/data)
+# -- one download resolves image_url for every barcode it covers, entirely
+# avoiding the 15 req/min per-IP product-read limit that the live API enforces.
+OFF_CSV_EXPORT_URL = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
+_NOT_IN_CSV_EXPORT = object()  # sentinel: barcode wasn't in the export, fall back to the live API
 # Open Food Facts asks all API clients to identify themselves with a
 # descriptive User-Agent; see
 # https://openfoodfacts.github.io/openfoodfacts-server/api/ref-cheatsheet/
@@ -103,9 +146,19 @@ def compress_to_base64(image_bytes: bytes, content_type: str) -> str:
     return data_url
 
 
-def read_barcodes(csv_path: Path, column: str) -> list[str]:
+def sniff_delimiter(csv_path: Path) -> str:
+    """Open Food Facts' own bulk export (e.g. en.openfoodfacts.org.products.csv)
+    is actually tab-delimited despite the .csv extension -- comma is only
+    right for a barcode list someone exported themselves. Picks whichever
+    character is more common in the header line."""
+    with csv_path.open(encoding="utf-8-sig") as f:
+        header = f.readline()
+    return "\t" if header.count("\t") > header.count(",") else ","
+
+
+def read_barcodes(csv_path: Path, column: str, delimiter: str) -> list[str]:
     with csv_path.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
+        reader = csv.DictReader(f, delimiter=delimiter)
         fieldnames = reader.fieldnames or []
         actual_column = next((f for f in fieldnames if f.strip().lower() == column.strip().lower()), None)
         if actual_column is None:
@@ -130,6 +183,33 @@ def read_existing_barcodes(output_path: Path) -> set[str]:
         return {row["barcode"] for row in rows if row.get("barcode")}
     except (json.JSONDecodeError, KeyError, TypeError):
         return set()
+
+
+def read_failed_barcodes(failed_output_path: Path) -> dict:
+    """Loads a previous run's --failed-output as {barcode: record}, so this
+    run's save() can update it in place instead of clobbering failures that
+    weren't retried this time (e.g. --limit or a checkpoint-resumed subset)."""
+    if not failed_output_path.exists():
+        return {}
+    try:
+        rows = json.loads(failed_output_path.read_text(encoding="utf-8"))
+        return {row["barcode"]: row for row in rows if row.get("barcode")}
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {}
+
+
+def classify_error(err: Exception) -> str:
+    """Tags an exception as 'rate_limited' or 'network' -- the two reasons
+    worth recording to --failed-output for a later targeted retry -- or
+    'other' for anything else (bad JSON, image compression failure, a
+    non-429 HTTP error), which isn't."""
+    if isinstance(err, urllib.error.HTTPError):
+        return "rate_limited" if err.code == 429 else "other"
+    if isinstance(err, RuntimeError) and "429" in str(err):
+        return "rate_limited"
+    if isinstance(err, (urllib.error.URLError, TimeoutError)):
+        return "network"
+    return "other"
 
 
 class RateLimiter:
@@ -197,6 +277,7 @@ class FetchResult:
     barcode: str
     photo: str | None  # base64 JPEG data URL, or None
     error: str | None  # set only on a request/parse/compression failure, not a plain "not found"
+    error_reason: str | None = None  # 'rate_limited' | 'network' | 'other', set only alongside error
 
 
 def _request_json(url: str, rate_limiter: RateLimiter, monitor: RateLimitMonitor):
@@ -245,12 +326,44 @@ def _download_image(image_url: str, rate_limiter: RateLimiter) -> tuple[bytes, s
     raise RuntimeError("unreachable")
 
 
-def fetch_product_photo(barcode: str, api_rate_limiter: RateLimiter, image_rate_limiter: RateLimiter, monitor: RateLimitMonitor) -> FetchResult:
+def _download_and_compress(barcode: str, image_url: str, image_rate_limiter: RateLimiter) -> FetchResult:
+    try:
+        image_bytes, content_type = _download_image(image_url, image_rate_limiter)
+        photo = compress_to_base64(image_bytes, content_type)
+    except Exception as err:
+        return FetchResult(barcode, None, f"image download/compress failed: {err}", classify_error(err))
+    return FetchResult(barcode, photo, None)
+
+
+def fetch_product_photo(
+    barcode: str,
+    api_rate_limiter: RateLimiter,
+    image_rate_limiter: RateLimiter,
+    monitor: RateLimitMonitor,
+    csv_image_url=_NOT_IN_CSV_EXPORT,
+    csv_export_only: bool = False,
+) -> FetchResult:
+    """Resolves a barcode to its photo. If csv_image_url was already
+    resolved from the bulk CSV export (see fetch_image_urls_from_csv_export),
+    the per-barcode product API lookup is skipped entirely and only the
+    image CDN is hit -- an empty string means the export confirmed the
+    product has no photo, a real miss rather than something to retry. If the
+    barcode wasn't in the export at all, csv_export_only decides whether that
+    falls back to the live per-barcode API (default) or is treated as a
+    miss with no live lookup at all -- see --csv-export-only."""
+    if csv_image_url is not _NOT_IN_CSV_EXPORT:
+        if not csv_image_url:
+            return FetchResult(barcode, None, None)
+        return _download_and_compress(barcode, csv_image_url, image_rate_limiter)
+
+    if csv_export_only:
+        return FetchResult(barcode, None, None)
+
     url = f"{OFF_PRODUCT_ENDPOINT}/{barcode}.json?fields={OFF_FIELDS}"
     try:
         data = _request_json(url, api_rate_limiter, monitor)
     except Exception as err:
-        return FetchResult(barcode, None, str(err))
+        return FetchResult(barcode, None, str(err), classify_error(err))
 
     if data.get("status") != 1:
         return FetchResult(barcode, None, None)
@@ -258,12 +371,105 @@ def fetch_product_photo(barcode: str, api_rate_limiter: RateLimiter, image_rate_
     if not image_url:
         return FetchResult(barcode, None, None)
 
-    try:
-        image_bytes, content_type = _download_image(image_url, image_rate_limiter)
-        photo = compress_to_base64(image_bytes, content_type)
-    except Exception as err:
-        return FetchResult(barcode, None, f"image download/compress failed: {err}")
-    return FetchResult(barcode, photo, None)
+    return _download_and_compress(barcode, image_url, image_rate_limiter)
+
+
+@contextlib.contextmanager
+def _open_csv_export_lines(csv_url: str, local_path: Path | None):
+    """Yields a text line iterator over the bulk export's TSV content, either
+    reading it straight from an already-downloaded local copy (plain,
+    uncompressed -- e.g. one saved by hand from
+    https://world.openfoodfacts.org/data) or streaming and decompressing it
+    from `csv_url` on the fly, never holding the ~9GB decompressed file in
+    memory or writing it to disk."""
+    if local_path is not None:
+        print(f"Reading Open Food Facts' bulk CSV export from {local_path} (already downloaded, no network request)...", flush=True)
+        with local_path.open(encoding="utf-8", errors="replace", newline="") as f:
+            yield f
+        return
+    print(
+        "Downloading Open Food Facts' bulk CSV export to resolve barcodes in one pass "
+        "(streams a large file -- this can take a few minutes)...",
+        flush=True,
+    )
+    request = urllib.request.Request(csv_url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        with gzip.GzipFile(fileobj=response) as gz:
+            yield io.TextIOWrapper(gz, encoding="utf-8", errors="replace", newline="")
+
+
+def normalize_barcode(code: str) -> str:
+    """Strips leading zeros so e.g. "0000001234" and "00001234" -- the same
+    GTIN with different zero-padding -- compare equal. Open Food Facts' live
+    product API normalizes padding internally when you look a barcode up, but
+    a literal string match against the bulk export's `code` column does not,
+    so barcodes that only differ by padding would otherwise silently miss.
+    Left as-is (including non-numeric barcodes) if stripping leaves nothing,
+    so it never turns a real code into an empty string."""
+    stripped = code.lstrip("0")
+    return stripped or code
+
+
+def fetch_image_urls_from_csv_export(
+    barcodes: set[str], csv_url: str = OFF_CSV_EXPORT_URL, local_path: Path | None = None, export_only: bool = False
+) -> dict[str, str]:
+    """Scans Open Food Facts' bulk CSV export (see _open_csv_export_lines --
+    either a local file or a fresh streamed download) and pulls image_url out
+    for every barcode in `barcodes`. When streamed fresh, this is a single
+    request rather than one per barcode, so it doesn't count against the
+    product-read API's 15 req/min per-IP limit at all; a local copy makes no
+    network request whatsoever. Matching is done on normalize_barcode() of
+    both sides, so differing zero-padding between your input list and the
+    export doesn't cause a miss.
+
+    Returns {barcode: image_url}, image_url == "" for a product the export
+    confirms has no photo. A barcode absent from the result simply wasn't in
+    this export (e.g. added since it was generated, or not a food product)
+    and needs the live per-barcode API as a fallback.
+    """
+    found: dict[str, str] = {}
+    if not barcodes:
+        return found
+    # Keyed by normalized form -> original barcode string(s) as given in
+    # --input, since that's what callers look results up by. A collision
+    # (two input barcodes that only differ by padding) resolves to both.
+    remaining: dict[str, list[str]] = {}
+    for b in barcodes:
+        remaining.setdefault(normalize_barcode(b), []).append(b)
+
+    with _open_csv_export_lines(csv_url, local_path) as text_stream:
+        delimiter = "\t" if local_path is None else sniff_delimiter(local_path)
+        header = next(text_stream).rstrip("\n").split(delimiter)
+        try:
+            code_index = header.index("code")
+            image_url_index = header.index("image_url")
+        except ValueError:
+            raise RuntimeError("CSV export is missing the expected 'code'/'image_url' columns -- format may have changed")
+
+        rows_scanned = 0
+        for line in text_stream:
+            rows_scanned += 1
+            if rows_scanned % 500_000 == 0:
+                print(f"  ...scanned {rows_scanned:,} export rows, {len(found)}/{len(barcodes)} barcode(s) resolved so far", flush=True)
+            fields = line.rstrip("\n").split(delimiter)
+            if len(fields) <= image_url_index:
+                continue
+            norm_code = normalize_barcode(fields[code_index].strip())
+            originals = remaining.pop(norm_code, None)
+            if originals:
+                image_url = fields[image_url_index].strip()
+                for orig in originals:
+                    found[orig] = image_url
+                if not remaining:
+                    break
+
+    rest_note = "the rest are treated as not found (--csv-export-only)" if export_only else "the rest will use the live API"
+    print(
+        f"Resolved {len(found)}/{len(barcodes)} barcode(s) from the CSV export "
+        f"({sum(1 for v in found.values() if v)} with a photo) -- {rest_note}.",
+        flush=True,
+    )
+    return found
 
 
 def main():
@@ -278,17 +484,26 @@ def main():
     parser.add_argument("--resume", action="store_true", help="Also skip barcodes that already have an entry in --output from a previous run (content-based, safe even if the CSV changes)")
     parser.add_argument("--checkpoint", type=Path, default=None, help="Where to record how many CSV rows have been attempted (default: <output>.checkpoint). Re-running the same command auto-resumes from here.")
     parser.add_argument("--restart", action="store_true", help="Ignore any existing checkpoint and start from row 0")
+    parser.add_argument("--failed-output", type=Path, default=None, help="Where to record barcodes that failed due to a network problem or HTTP 429, for a later targeted retry (default: <output>.failed.json)")
+    parser.add_argument("--csv-export", action="store_true", help="Resolve image_url for as many barcodes as possible from Open Food Facts' bulk CSV export (one ~1.2GB streamed download) before falling back to the per-barcode API -- avoids the 15 req/min per-IP rate limit for barcodes the export covers. Worth it mainly for large barcode lists.")
+    parser.add_argument("--csv-export-file", type=Path, default=None, help="Use an already-downloaded copy of Open Food Facts' bulk export (the plain .csv, not .gz) instead of streaming a fresh one -- no network request for this step at all. Implies --csv-export.")
+    parser.add_argument("--csv-export-only", action="store_true", help="Requires --csv-export/--csv-export-file. Treat a barcode missing from the export as not found instead of falling back to the live per-barcode API -- no live API traffic at all, at the cost of never resolving barcodes the export doesn't cover (e.g. added since it was generated).")
+    parser.add_argument("--csv-export-url", default=OFF_CSV_EXPORT_URL, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if not args.input.exists():
         raise SystemExit(f"Input file not found: {args.input}")
+    if args.csv_export_only and not (args.csv_export or args.csv_export_file):
+        raise SystemExit("--csv-export-only requires --csv-export or --csv-export-file")
 
     checkpoint_path = args.checkpoint or args.output.with_name(args.output.name + ".checkpoint")
+    failed_output_path = args.failed_output or args.output.with_name(args.output.name + ".failed.json")
 
     def save_checkpoint(row_number):
         checkpoint_path.write_text(str(row_number), encoding="utf-8")
 
-    raw_barcodes = read_barcodes(args.input, args.barcode_column)
+    delimiter = sniff_delimiter(args.input)
+    raw_barcodes = read_barcodes(args.input, args.barcode_column, delimiter)
     start_index = 0
     if not args.restart and checkpoint_path.exists():
         try:
@@ -304,6 +519,7 @@ def main():
     # would overwrite the output file and lose everything from earlier runs.
     existing_barcodes = read_existing_barcodes(args.output)
     previous_results = json.loads(args.output.read_text(encoding="utf-8")) if existing_barcodes else []
+    previous_failed = read_failed_barcodes(failed_output_path)
     if args.resume and existing_barcodes:
         skipped_count = len([b for b in barcodes if b in existing_barcodes])
         barcodes = [b for b in barcodes if b not in existing_barcodes]
@@ -316,6 +532,18 @@ def main():
         return
     if not HAS_PIL:
         print("Note: Pillow isn't installed (`pip install pillow`) -- photos will be stored as raw bytes, uncompressed.", flush=True)
+
+    csv_image_urls: dict[str, str] = {}
+    if args.csv_export or args.csv_export_file:
+        if args.csv_export_file and not args.csv_export_file.exists():
+            raise SystemExit(f"--csv-export-file not found: {args.csv_export_file}")
+        try:
+            csv_image_urls = fetch_image_urls_from_csv_export(
+                set(barcodes), args.csv_export_url, args.csv_export_file, args.csv_export_only
+            )
+        except Exception as err:
+            print(f"Warning: CSV export lookup failed ({err}) -- falling back to the per-barcode API for everything.", flush=True)
+
     print(f"Looking up {total} barcode(s) on Open Food Facts ({args.workers} workers)...", flush=True)
 
     rate_limiter = RateLimiter(args.delay)
@@ -337,6 +565,27 @@ def main():
                 merged[b] = {"barcode": b, "photo": outcomes[b].photo}
         results = list(merged.values())
         args.output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Track network/429 failures separately from confirmed hits and
+        # misses, merged onto whatever --failed-output already had (from an
+        # earlier run this one didn't re-attempt), so the file always
+        # reflects each barcode's most recent outcome.
+        for b in barcodes:
+            result = outcomes.get(b)
+            if result is None:
+                continue
+            if result.error is None:
+                previous_failed.pop(b, None)  # succeeded, or confirmed not on Open Food Facts
+            elif result.error_reason in ("rate_limited", "network"):
+                previous_failed[b] = {
+                    "barcode": b,
+                    "reason": result.error_reason,
+                    "error": result.error,
+                    "lastFailedAt": datetime.now(timezone.utc).isoformat(),
+                }
+        failed_output_path.write_text(
+            json.dumps(list(previous_failed.values()), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         return results
 
     SAVE_EVERY = 250  # autosave periodically so a hard kill (not just Ctrl-C) can't lose a whole run
@@ -350,7 +599,13 @@ def main():
     watermark = 0
 
     executor = ThreadPoolExecutor(max_workers=args.workers)
-    futures = {executor.submit(fetch_product_photo, b, rate_limiter, image_rate_limiter, monitor): b for b in barcodes}
+    futures = {
+        executor.submit(
+            fetch_product_photo, b, rate_limiter, image_rate_limiter, monitor,
+            csv_image_urls.get(b, _NOT_IN_CSV_EXPORT), args.csv_export_only,
+        ): b
+        for b in barcodes
+    }
     try:
         for future in as_completed(futures):
             result = future.result()
@@ -384,6 +639,7 @@ def main():
 
     not_found = sum(1 for r in outcomes.values() if r.error is None and r.photo is None)
     errors = [(r.barcode, r.error) for r in outcomes.values() if r.error is not None]
+    network_or_rate_limited = sum(1 for r in outcomes.values() if r.error_reason in ("rate_limited", "network"))
     skipped = total - len(outcomes)
 
     print(f"\nDone: {len(results)} total with an image, {not_found} not found on Open Food Facts, {len(errors)} failed" + (f", {skipped} not attempted" if skipped else ""))
@@ -391,6 +647,8 @@ def main():
         print(f"Failed lookups ({len(errors)}) -- consider retrying just these with --resume:")
         for barcode, err in errors:
             print(f"  {barcode}: {err}")
+    if network_or_rate_limited:
+        print(f"{network_or_rate_limited} of those failed due to a network problem or HTTP 429 and were recorded to {failed_output_path} for a later targeted retry.")
     print(f"Wrote {len(results)} result(s) to {args.output}")
 
 
