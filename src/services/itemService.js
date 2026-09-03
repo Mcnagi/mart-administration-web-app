@@ -117,9 +117,13 @@ export async function searchProductByBarcode(barcode) {
 
   // A data/{barcode} doc can exist with only a legacy cached `photos` field
   // and no `product` name (left behind by the old photo-search feature), so
-  // a real imported-row match requires `product`, not just doc existence.
+  // a real imported-row match requires `product` or `salePrice` — either
+  // means this doc actually carries imported data, not just doc existence.
+  // Without the `salePrice` half of this check, a row imported with a price
+  // but no product name would fall through to the external lookup below,
+  // silently losing its salePrice (the external result never has one).
   const row = await getDataByBarcode(trimmed);
-  if (row?.product) {
+  if (row?.product || row?.salePrice) {
     return {
       status: 'found',
       searchResult: row,
