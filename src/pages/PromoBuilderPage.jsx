@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../context/LanguageContext';
 import { fetchPromos, computeFinalPrice } from '../services/promoService';
-import { fetchItemById } from '../services/itemService';
+import { fetchItemById, fetchDataRowForBarcode } from '../services/itemService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BackIcon } from '../components/icons';
 import PromoBuilderForm from '../components/promoBuilder/PromoBuilderForm';
 import PromoBuilderPreview from '../components/promoBuilder/PromoBuilderPreview';
+import { DEFAULT_PROMO_LAYOUT } from '../promoLayouts';
 
 export default function PromoBuilderPage() {
   const { promoId } = useParams();
@@ -24,6 +25,11 @@ export default function PromoBuilderPage() {
   const [sourceItemId, setSourceItemId] = useState(fromItemId || null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
+  const [layout, setLayout] = useState(DEFAULT_PROMO_LAYOUT);
+  const [textOffsetX, setTextOffsetX] = useState(0);
+  const [textOffsetY, setTextOffsetY] = useState(0);
+  const [fontScale, setFontScale] = useState(1);
+  const [nameNoWrap, setNameNoWrap] = useState(false);
   const [loading, setLoading] = useState(isEditing || !!fromItemId);
   const [error, setError] = useState('');
 
@@ -54,6 +60,11 @@ export default function PromoBuilderPage() {
           setSourceItemId(promo.sourceItemId || null);
           setExistingPhotoBase64(promo.photoBase64 || '');
           setPreviewUrl(promo.photoBase64 || '');
+          setLayout(promo.layout || DEFAULT_PROMO_LAYOUT);
+          setTextOffsetX(promo.textOffsetX || 0);
+          setTextOffsetY(promo.textOffsetY || 0);
+          setFontScale(promo.fontScale || 1);
+          setNameNoWrap(promo.nameNoWrap || false);
         })
         .catch((err) => setError(err.message || t('promos.errorLoad')))
         .finally(() => !cancelled && setLoading(false));
@@ -65,15 +76,26 @@ export default function PromoBuilderPage() {
     if (fromItemId) {
       let cancelled = false;
       fetchItemById(fromItemId)
-        .then((item) => {
+        .then(async (item) => {
+          if (cancelled || !item) return;
+          // The item itself only carries a single name and no sale price —
+          // both names and the sale price live on the imported `data`
+          // collection row for its barcode, so pull that in too. The item's
+          // own photo (if any) still wins over the data row's, since it may
+          // have been picked/replaced specifically for this item.
+          const dataRow = await fetchDataRowForBarcode(item.barcode);
           if (cancelled) return;
-          if (item) {
-            skipNextRecalc.current = true;
-            setNameEn(item.name || '');
-            setDiscountPercent(item.discountPercent ?? '');
-            setExistingPhotoBase64(item.photoBase64 || '');
-            setPreviewUrl(item.photoBase64 || '');
-          }
+          // Unlike the isEditing branch above, there's no independently-set
+          // finalPrice to protect here — this is a brand new promo, so let
+          // the recalc effect below compute it fresh from the prefilled
+          // originalPrice/discountPercent.
+          setNameEn(dataRow?.product || item.name || '');
+          setNameKo(dataRow?.product2 || '');
+          setOriginalPrice(dataRow?.salePrice ?? '');
+          setDiscountPercent(item.discountPercent ?? '');
+          const photo = item.photoBase64 || dataRow?.photo || '';
+          setExistingPhotoBase64(photo);
+          setPreviewUrl(photo);
         })
         .catch((err) => setError(err.message || t('promos.errorLoad')))
         .finally(() => !cancelled && setLoading(false));
@@ -105,7 +127,17 @@ export default function PromoBuilderPage() {
     discountPercent: discountPercent === '' ? null : Number(discountPercent),
     finalPrice: finalPrice === '' ? null : Number(finalPrice),
     photoBase64: previewUrl,
+    layout,
+    textOffsetX,
+    textOffsetY,
+    fontScale,
+    nameNoWrap,
   };
+
+  function handleResetTextPosition() {
+    setTextOffsetX(0);
+    setTextOffsetY(0);
+  }
 
   return (
     <div className="page">
@@ -132,9 +164,24 @@ export default function PromoBuilderPage() {
           finalPrice={finalPrice}
           onFinalPriceChange={setFinalPrice}
           onPreviewUrlChange={setPreviewUrl}
+          layout={layout}
+          onLayoutChange={setLayout}
+          textOffsetX={textOffsetX}
+          textOffsetY={textOffsetY}
+          fontScale={fontScale}
+          onFontScaleChange={setFontScale}
+          nameNoWrap={nameNoWrap}
+          onNameNoWrapChange={setNameNoWrap}
         />
 
-        <PromoBuilderPreview promo={previewPromo} />
+        <PromoBuilderPreview
+          promo={previewPromo}
+          onTextOffsetChange={(x, y) => {
+            setTextOffsetX(x);
+            setTextOffsetY(y);
+          }}
+          onResetPosition={handleResetTextPosition}
+        />
       </div>
     </div>
   );

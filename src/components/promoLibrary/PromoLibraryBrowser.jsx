@@ -65,6 +65,7 @@ export default function PromoLibraryBrowser({ promos, onPromosChanged }) {
       {selectMode && selectedIds.size > 0 && (
         <PromoLibraryBulkBar
           selectedCount={selectedIds.size}
+          defaultLayout={selectedIds.size === 1 ? promos.find((p) => p.id === [...selectedIds][0])?.layout : undefined}
           busy={bulkBusy}
           error={bulkError}
           onPrint={goToPrint}

@@ -165,6 +165,17 @@ export function fetchExternalProductImage(imageUrl) {
   return getExternalProductImage(imageUrl);
 }
 
+// Looks up the imported `data` collection row for an item's barcode — the
+// source of truth for its English/Korean names and sale price (none of
+// which are stored on the item itself, see saveItem below). Used by the
+// promo builder to prefill a new promo from an item. Returns null when the
+// item has no barcode or no row is on file.
+export function fetchDataRowForBarcode(barcode) {
+  const trimmed = (barcode ?? '').trim();
+  if (!trimmed) return Promise.resolve(null);
+  return getDataByBarcode(trimmed);
+}
+
 // A barcode item doesn't store its own name (see saveItem below), so the
 // items list resolves one for display: the imported `data` collection first
 // (same source ItemFormPage's search uses), falling back to the external

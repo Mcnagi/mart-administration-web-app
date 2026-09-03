@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom';
 import PromoTemplate from '../PromoTemplate';
+import { promoLayoutToSlot } from '../../promoLayouts';
 
 export default function PromoLibraryGrid({ promos, selectMode, selectedIds, onToggleSelect }) {
   return (
     <div className="promo-library-grid">
       {promos.map((promo) => {
         const selected = selectedIds.has(promo.id);
+        const slot = promoLayoutToSlot(promo.layout);
         const thumb = (
           <>
-            <PromoTemplate promo={promo} slot="full" scale={0.18} />
+            <PromoTemplate promo={promo} slot={slot} scale={0.18} />
             <div className="promo-library-card-name">{promo.nameEn}</div>
           </>
         );

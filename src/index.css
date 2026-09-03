@@ -465,6 +465,15 @@ h1, h2, h3 {
   font: inherit;
 }
 
+.bulk-layout-select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+}
+
 /* ---------- Forms ---------- */
 
 .auth-page {
@@ -534,6 +543,16 @@ h1, h2, h3 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.item-form label.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-form label.checkbox-label input[type='checkbox'] {
+  width: auto;
 }
 
 .item-form label.label-inline > input,
@@ -1367,6 +1386,33 @@ textarea:focus {
   padding: 16px;
 }
 
+.promo-builder-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.promo-builder-preview-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Only the builder's own preview lets you drag the text block around (see
+   PromoBuilderPreview) — scoped here rather than in .promo-text itself so
+   the read-only print/library renders of the same PromoTemplate don't get
+   a grab cursor. */
+.promo-builder-preview-frame .promo-text {
+  cursor: grab;
+  touch-action: none;
+}
+
+.promo-builder-preview-frame .promo-text:active {
+  cursor: grabbing;
+}
+
 .promo-photo-input-row {
   display: flex;
   flex-wrap: wrap;
@@ -1412,6 +1458,16 @@ textarea:focus {
   height: 105mm;
 }
 
+.promo-slot--fullLandscape {
+  width: 297mm;
+  height: 210mm;
+}
+
+.promo-slot--a5Landscape {
+  width: 210mm;
+  height: 148mm;
+}
+
 .promo-thumb {
   overflow: hidden;
   border-radius: 8px;
@@ -1423,26 +1479,37 @@ textarea:focus {
   box-sizing: border-box;
   border: 1cm solid #d6336c;
   background: #fff;
-  overflow: hidden;
+  position: relative;
+  /* No overflow:hidden here (promo-inner below has its own) — that would
+     clip to the padding box, i.e. just inside the border, hiding the part
+     of promo-logo meant to overlap the border itself. */
 }
 
 .promo-inner {
   height: 100%;
   box-sizing: border-box;
-  padding: 6mm;
+  padding: 18mm 3mm 3mm 3mm;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .promo-logo {
+  position: absolute;
+  /* `top` on an absolutely positioned child is relative to promo-frame's
+     padding box, which starts *after* its 1cm border — so -1cm here lands
+     the logo's top edge at the border's outer edge, letting it straddle the
+     red line instead of sitting just inside it. */
+  top: -1cm;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
   text-align: center;
-  margin-bottom: 4mm;
 }
 
 .promo-logo img {
-  max-height: 18mm;
-  max-width: 60%;
+  max-height: 24mm;
+  max-width: 65%;
   object-fit: contain;
 }
 
@@ -1473,7 +1540,7 @@ textarea:focus {
   font-style: italic;
   color: #1a1a1a;
   line-height: 1.15;
-  font-size: 22px;
+  font-size: calc(24px * var(--promo-font-scale, 1));
 }
 
 .promo-name-ko {
@@ -1481,11 +1548,11 @@ textarea:focus {
   font-style: italic;
   color: #1a1a1a;
   line-height: 1.15;
-  font-size: 16px;
+  font-size: calc(18px * var(--promo-font-scale, 1));
 }
 
 .promo-price-original {
-  font-size: 13px;
+  font-size: calc(14px * var(--promo-font-scale, 1));
   color: #666;
   text-decoration: line-through;
 }
@@ -1493,7 +1560,7 @@ textarea:focus {
 .promo-price-highlight {
   display: inline-block;
   background: #fff23d;
-  padding: 3mm 5mm;
+  padding: 3mm 5mm 1.5mm 2.5mm;
   width: fit-content;
 }
 
@@ -1501,39 +1568,44 @@ textarea:focus {
   font-weight: 800;
   color: #d6336c;
   line-height: 1.15;
-  font-size: 22px;
+  font-size: calc(24px * var(--promo-font-scale, 1));
 }
 
 .promo-price-final {
   font-weight: 800;
   color: #d6336c;
   line-height: 1.15;
-  font-size: 20px;
+  font-size: calc(22px * var(--promo-font-scale, 1));
 }
 
 .promo-slot--full .promo-name-en,
-.promo-slot--half .promo-name-en {
-  font-size: 34px;
+.promo-slot--half .promo-name-en,
+.promo-slot--fullLandscape .promo-name-en {
+  font-size: calc(38px * var(--promo-font-scale, 1));
 }
 
 .promo-slot--full .promo-name-ko,
-.promo-slot--half .promo-name-ko {
-  font-size: 24px;
+.promo-slot--half .promo-name-ko,
+.promo-slot--fullLandscape .promo-name-ko {
+  font-size: calc(27px * var(--promo-font-scale, 1));
 }
 
 .promo-slot--full .promo-price-original,
-.promo-slot--half .promo-price-original {
-  font-size: 18px;
+.promo-slot--half .promo-price-original,
+.promo-slot--fullLandscape .promo-price-original {
+  font-size: calc(20px * var(--promo-font-scale, 1));
 }
 
 .promo-slot--full .promo-discount-percent,
-.promo-slot--half .promo-discount-percent {
-  font-size: 34px;
+.promo-slot--half .promo-discount-percent,
+.promo-slot--fullLandscape .promo-discount-percent {
+  font-size: calc(38px * var(--promo-font-scale, 1));
 }
 
 .promo-slot--full .promo-price-final,
-.promo-slot--half .promo-price-final {
-  font-size: 30px;
+.promo-slot--half .promo-price-final,
+.promo-slot--fullLandscape .promo-price-final {
+  font-size: calc(33px * var(--promo-font-scale, 1));
 }
 
 .promo-photo {
@@ -1591,6 +1663,13 @@ textarea:focus {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
+.promo-print-sheet--a5-landscape {
+  width: 210mm;
+  height: 148mm;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
 @media print {
   .top-bar,
   .bottom-nav,
@@ -1610,12 +1689,14 @@ textarea:focus {
   }
 
   .promo-print-sheet,
-  .promo-print-sheet--landscape {
+  .promo-print-sheet--landscape,
+  .promo-print-sheet--a5-landscape {
     box-shadow: none;
   }
 
   .promo-print-sheet:not(:last-child),
-  .promo-print-sheet--landscape:not(:last-child) {
+  .promo-print-sheet--landscape:not(:last-child),
+  .promo-print-sheet--a5-landscape:not(:last-child) {
     break-after: page;
   }
 }

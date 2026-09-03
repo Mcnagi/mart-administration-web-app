@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../context/LanguageContext';
 import { savePromo, removePromo } from '../../services/promoService';
+import { PROMO_LAYOUT_OPTIONS } from '../../promoLayouts';
 
 export default function PromoBuilderForm({
   promoId,
@@ -19,6 +20,14 @@ export default function PromoBuilderForm({
   finalPrice,
   onFinalPriceChange,
   onPreviewUrlChange,
+  layout,
+  onLayoutChange,
+  textOffsetX,
+  textOffsetY,
+  fontScale,
+  onFontScaleChange,
+  nameNoWrap,
+  onNameNoWrapChange,
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -74,6 +83,11 @@ export default function PromoBuilderForm({
           sourceItemId,
           photoFile,
           existingPhotoBase64,
+          layout,
+          textOffsetX,
+          textOffsetY,
+          fontScale,
+          nameNoWrap,
         },
         user.uid
       );
@@ -99,6 +113,16 @@ export default function PromoBuilderForm({
 
   return (
     <form className="item-form promo-builder-form" onSubmit={handleSubmit}>
+      <label>
+        {t('promos.paperSize')}
+        <select value={layout} onChange={(e) => onLayoutChange(e.target.value)}>
+          {PROMO_LAYOUT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {t(option.labelKey)}
+            </option>
+          ))}
+        </select>
+      </label>
       <label>
         {t('promos.photo')}
         <div className="promo-photo-input-row">
@@ -134,6 +158,10 @@ export default function PromoBuilderForm({
           placeholder={t('promos.nameKoPlaceholder')}
         />
       </label>
+      <label className="checkbox-label">
+        <input type="checkbox" checked={nameNoWrap} onChange={(e) => onNameNoWrapChange(e.target.checked)} />
+        {t('promos.nameNoWrap')}
+      </label>
       <label>
         {t('promos.originalPrice')}
         <input
@@ -165,6 +193,17 @@ export default function PromoBuilderForm({
           value={finalPrice}
           onChange={(e) => onFinalPriceChange(e.target.value)}
           placeholder={t('promos.finalPricePlaceholder')}
+        />
+      </label>
+      <label>
+        {t('promos.textSize', { percent: Math.round(fontScale * 100) })}
+        <input
+          type="range"
+          min="0.7"
+          max="1.6"
+          step="0.05"
+          value={fontScale}
+          onChange={(e) => onFontScaleChange(Number(e.target.value))}
         />
       </label>
       {error && <div className="form-error">{error}</div>}
