@@ -26,6 +26,7 @@ const LAYOUTS = {
   halfLandscape: { pageSize: 'A4 landscape', sheetClassName: 'promo-print-sheet--landscape', templateSlot: 'pair' },
   a5Landscape: { pageSize: 'A5 landscape', sheetClassName: 'promo-print-sheet--a5-landscape', templateSlot: 'a5Landscape' },
   pair: { pageSize: 'A4 landscape', sheetClassName: 'promo-print-sheet--landscape', templateSlot: 'pair', paired: true },
+  pairPortrait: { pageSize: 'A4 portrait', sheetClassName: 'promo-print-sheet', templateSlot: 'half', paired: true },
 };
 
 export default function PromoPrintPage() {

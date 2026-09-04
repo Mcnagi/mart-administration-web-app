@@ -17,6 +17,16 @@ export const PROMO_LAYOUT_VALUES = PROMO_LAYOUT_OPTIONS.map((option) => option.v
 
 export const DEFAULT_PROMO_LAYOUT = 'full';
 
+// "N per sheet" combinations that only make sense when printing two or more
+// promos together — not a single promo's own layout choice, so kept out of
+// PROMO_LAYOUT_OPTIONS (see promoLayoutToSlot below). Shown alongside
+// PROMO_LAYOUT_OPTIONS in the library's bulk print picker once 2+ promos are
+// selected — see PromoLibraryBulkBar.
+export const PROMO_PAIR_LAYOUT_OPTIONS = [
+  { value: 'pair', labelKey: 'promos.printPair' },
+  { value: 'pairPortrait', labelKey: 'promos.printPairPortrait' },
+];
+
 // A promo's saved `layout` isn't always a valid PromoTemplate `slot` name —
 // 'halfLandscape' shares its dimensions with the 'pair' (2-per-sheet) slot
 // (see PROMO_SLOT_SIZE_MM in components/PromoTemplate.jsx, which has no
