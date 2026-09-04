@@ -1562,6 +1562,8 @@ textarea:focus {
   background: #fff23d;
   padding: 3mm 5mm 1.5mm 2.5mm;
   width: fit-content;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 
 .promo-discount-percent {
