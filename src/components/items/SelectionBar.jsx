@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { applyDiscount, removeItems } from '../../services/itemService';
+import { StickyBottom } from '../StickyBar';
 
 export default function SelectionBar({ selectedIds, onClearSelection }) {
   const { t } = useTranslation();
@@ -29,7 +30,7 @@ export default function SelectionBar({ selectedIds, onClearSelection }) {
   }
 
   return (
-    <div className="bulk-bar">
+    <StickyBottom align="mid" className="bulk-bar">
       <span className="bulk-count">{t('items.selectedCount', { count: selectedIds.size })}</span>
       <div className="bulk-actions">
         <button className="btn-outline" disabled={busy} onClick={() => runBulk(() => applyDiscount(Array.from(selectedIds), 50))}>
@@ -66,6 +67,6 @@ export default function SelectionBar({ selectedIds, onClearSelection }) {
         </button>
       </div>
       {error && <div className="form-error">{error}</div>}
-    </div>
+    </StickyBottom>
   );
 }

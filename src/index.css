@@ -59,8 +59,12 @@
   box-sizing: border-box;
 }
 
+/* clip, not hidden: Safari treats an ancestor with any overflow-x/y value
+   other than visible/clip as a scroll container, which silently disables
+   position: sticky for every descendant (the top bar, and the items
+   toolbar's filter/sort/select controls, all went unstuck because of this). */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -109,9 +113,6 @@ h1, h2, h3 {
 /* ---------- Nav ---------- */
 
 .top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -127,6 +128,12 @@ h1, h2, h3 {
   .top-bar {
     background: rgba(23, 21, 29, 0.55);
   }
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .navbar-brand {
@@ -173,150 +180,180 @@ h1, h2, h3 {
   color: var(--text-muted);
 }
 
-/* Frosted, translucent pill that floats over page content, with a soft top
-   highlight to read as a glass surface rather than a flat panel. */
-.bottom-nav {
+/* ---------- Sticky bar primitives ----------
+   Floating bars pinned to the viewport edge (top or bottom) and anchored to
+   the left, mid, or right side. Width is content-sized (max-content), never
+   a share of the viewport, so window resizing repositions the bar but never
+   stretches or reflows it. See src/components/StickyBar.jsx. */
+
+.sticky-bar {
   position: fixed;
-  left: 50%;
+  z-index: 25;
+  width: max-content;
+  max-width: calc(100% - 32px);
+}
+
+.sticky-top-bar {
+  top: max(calc(var(--topbar-h) + 10px), env(safe-area-inset-top));
+}
+
+/* Pinned above the floating URL/search bar Safari overlays on iOS. */
+.sticky-bottom-bar {
   bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+.sticky-align-left {
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.sticky-align-mid {
+  left: 50%;
   transform: translateX(-50%);
-  z-index: 20;
+}
+
+.sticky-align-right {
+  right: max(12px, env(safe-area-inset-right));
+}
+
+/* ---------- Nav menu (collapsible, top-left) ---------- */
+
+/* Sticky on its own, independent of .top-bar's stickiness, and pinned below
+   the header rather than inside/over it — so the two visibly read as
+   separate floating pieces instead of one merged bar. Overrides
+   .sticky-top-bar's (later-declared, so it wins) default top offset. */
+.menu-toggle-wrap {
+  top: max(calc(var(--topbar-h) + 10px), calc(env(safe-area-inset-top) + 10px));
+}
+
+/* Its own surface chip (the header's frosted background doesn't extend down
+   here), matching the look of the other floating toolbar buttons. */
+.menu-toggle-wrap .icon-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.menu-toggle-wrap .icon-btn:hover {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent);
+}
+
+.nav-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+
+/* Frosted glass panel, same treatment the old bottom tab pill used. Sits
+   below the toggle button itself, with a gap, rather than at the button's
+   own top offset. */
+.nav-menu-panel {
+  top: max(calc(var(--topbar-h) + 48px), calc(env(safe-area-inset-top) + 48px));
   display: flex;
-  align-items: stretch;
-  gap: 1px;
-  padding: 4px;
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.4));
+  flex-direction: column;
+  min-width: 200px;
+  padding: 8px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.75));
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow:
     0 10px 30px rgba(16, 14, 23, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 @media (prefers-color-scheme: dark) {
-  .bottom-nav {
-    background: linear-gradient(180deg, rgba(40, 38, 48, 0.7), rgba(26, 24, 33, 0.55));
+  .nav-menu-panel {
+    background: linear-gradient(180deg, rgba(40, 38, 48, 0.92), rgba(26, 24, 33, 0.85));
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow:
       0 10px 30px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
 
-/* Scan action embedded in the middle of the tab bar — an accent-filled
-   circle so it reads as an action (like the FAB) rather than another
-   destination tab, without leaving the centered pill. */
-.bottom-nav-scan {
+.nav-menu-header {
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-menu-item:active {
+  transform: scale(0.98);
+}
+
+.nav-menu-item svg {
   flex: 0 0 auto;
-  align-self: center;
+  width: 19px;
+  height: 19px;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.nav-menu-item.active {
+  color: var(--accent);
+  background: rgba(124, 58, 237, 0.16);
+}
+
+.nav-menu-item.active svg {
+  color: var(--accent);
+}
+
+/* ---------- Scan FAB (sticky bottom-right) ---------- */
+
+.scan-fab {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin: 0 2px;
+  width: 52px;
+  height: 52px;
   border: none;
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-contrast);
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.45);
   transition: transform 0.15s ease;
 }
 
-.bottom-nav-scan svg {
-  width: 17px;
-  height: 17px;
+.scan-fab svg {
+  width: 21px;
+  height: 21px;
 }
 
-.bottom-nav-scan:active {
+.scan-fab:active {
   transform: scale(0.92);
-}
-
-.bottom-nav-item {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  padding: 5px 12px;
-  border-radius: 16px;
-  text-decoration: none;
-  color: var(--text-muted);
-  font-size: 9.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
-}
-
-.bottom-nav-item:active {
-  transform: scale(0.92);
-}
-
-.bottom-nav-item span {
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (max-width: 360px) {
-  .bottom-nav-item span {
-    max-width: 64px;
-  }
-}
-
-.bottom-nav-item svg {
-  width: 18px;
-  height: 18px;
-  transition: transform 0.15s ease;
-}
-
-.bottom-nav-item.active {
-  color: var(--accent);
-  background: rgba(124, 58, 237, 0.16);
-}
-
-/* Small "pop" on the icon and a soft rise-in on the label whenever a tab
-   becomes the active one — gives switching tabs a bit of life without any
-   JS or layout measurement. */
-@keyframes tab-icon-pop {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.22); }
-  100% { transform: scale(1); }
-}
-
-@keyframes tab-label-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.bottom-nav-item.active svg {
-  animation: tab-icon-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.bottom-nav-item.active span {
-  animation: tab-label-in 0.22s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bottom-nav-item.active svg,
-  .bottom-nav-item.active span {
-    animation: none;
-  }
 }
 
 @media (min-width: 640px) {
   .top-bar {
     padding: 10px 24px;
-  }
-  .bottom-nav-item {
-    font-size: 11px;
   }
 }
 
@@ -421,16 +458,11 @@ h1, h2, h3 {
   color: var(--danger);
 }
 
-/* ---------- Bulk select bar (admin multi-select on Items) ---------- */
+/* ---------- Bulk select bar (admin multi-select on Items) ----------
+   Renders inside <StickyBottom align="mid">, which handles the fixed
+   position/anchor/safe-area math — this class only owns the bar's look. */
 
 .bulk-bar {
-  position: fixed;
-  left: 50%;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 20;
-  width: calc(100% - 32px);
-  max-width: 688px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -1052,7 +1084,10 @@ textarea:focus {
 
 .items-toolbar {
   position: sticky;
-  top: var(--topbar-h);
+  /* The header above it no longer stays pinned while scrolling, so this is
+     now the top-most sticky element — pin it flush to the viewport edge
+     instead of leaving a header-shaped gap above it. */
+  top: max(0px, env(safe-area-inset-top));
   z-index: 9;
   display: flex;
   align-items: flex-start;
@@ -1674,7 +1709,7 @@ textarea:focus {
 
 @media print {
   .top-bar,
-  .bottom-nav,
+  .sticky-bar,
   .no-print {
     display: none !important;
   }

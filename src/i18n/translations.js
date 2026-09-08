@@ -10,6 +10,7 @@ export const LANGUAGES = [
 export const translations = {
   en: {
     nav: {
+      menu: 'Menu',
       items: 'Items',
       promos: 'Promos',
       admin: 'Admin',
@@ -266,6 +267,7 @@ export const translations = {
   },
   ko: {
     nav: {
+      menu: '메뉴',
       items: '품목',
       promos: '프로모션',
       admin: '관리자',
