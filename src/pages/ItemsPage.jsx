@@ -8,6 +8,9 @@ import SelectionBar from '../components/items/SelectionBar';
 import FilterBar from '../components/items/FilterBar';
 import ExpirySection from '../components/items/ExpirySection';
 import { hasLoadedThisRuntime, markLoadedThisRuntime } from '../utils/itemsFilterCache';
+import { StickyBottom } from '../components/StickyBar';
+import { ArrowUpIcon } from '../components/icons';
+import { useScrolledPast } from '../hooks/useScrolledPast';
 
 export default function ItemsPage() {
   const { selecting: selectMode, setSelecting: setSelectMode } = useSelection();
@@ -25,6 +28,10 @@ export default function ItemsPage() {
   const [isFreshLoad] = useState(() => !hasLoadedThisRuntime());
   const [showDiscountToast, setShowDiscountToast] = useState(isFreshLoad);
   useEffect(() => markLoadedThisRuntime(), []);
+
+  // "Back to top" floats above the scan FAB once scrolled down more than
+  // 10% of a viewport height.
+  const showBackToTop = useScrolledPast(0.1);
 
   // Selection state is shared with NavBar (which hides the bottom nav while
   // selecting) via context, which outlives this page — clear it if the page
@@ -91,6 +98,19 @@ export default function ItemsPage() {
             ))
           )}
         </>
+      )}
+
+      {showBackToTop && (
+        <StickyBottom align="right" className="back-to-top-wrap">
+          <button
+            type="button"
+            className="back-to-top-btn"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label={t('items.backToTop')}
+          >
+            <ArrowUpIcon />
+          </button>
+        </StickyBottom>
       )}
     </div>
   );

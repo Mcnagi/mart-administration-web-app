@@ -89,6 +89,14 @@ export function MenuIcon(props) {
   );
 }
 
+export function ArrowUpIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
 export function BarcodeIcon(props) {
   return (
     <svg {...common} {...props}>

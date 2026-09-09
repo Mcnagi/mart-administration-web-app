@@ -171,6 +171,16 @@ h1, h2, h3 {
   color: var(--accent);
 }
 
+.menu-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.menu-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
 .lang-select {
   font-size: 13px;
   padding: 4px 8px;
@@ -333,13 +343,13 @@ h1, h2, h3 {
   justify-content: center;
   width: 52px;
   height: 52px;
-  border: none;
   border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.45);
-  transition: transform 0.15s ease;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .scan-fab svg {
@@ -347,7 +357,47 @@ h1, h2, h3 {
   height: 21px;
 }
 
+.scan-fab:hover {
+  color: var(--accent);
+}
+
 .scan-fab:active {
+  transform: scale(0.92);
+}
+
+/* ---------- Back-to-top button (sticky bottom-right, above the scan FAB) ---------- */
+
+.back-to-top-wrap {
+  /* scan-fab's own bottom offset (max(10px, safe-area)) plus its 52px
+     height plus a 12px gap. */
+  bottom: max(74px, calc(env(safe-area-inset-bottom) + 64px));
+}
+
+.back-to-top-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.back-to-top-btn svg {
+  width: 19px;
+  height: 19px;
+}
+
+.back-to-top-btn:hover {
+  color: var(--accent);
+}
+
+.back-to-top-btn:active {
   transform: scale(0.92);
 }
 
@@ -1083,12 +1133,6 @@ textarea:focus {
 /* ---------- Filter bar ---------- */
 
 .items-toolbar {
-  position: sticky;
-  /* The header above it no longer stays pinned while scrolling, so this is
-     now the top-most sticky element — pin it flush to the viewport edge
-     instead of leaving a header-shaped gap above it. */
-  top: max(0px, env(safe-area-inset-top));
-  z-index: 9;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;

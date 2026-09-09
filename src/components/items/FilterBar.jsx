@@ -13,12 +13,14 @@ import {
 } from '../../services/itemService';
 import { FilterIcon } from '../icons';
 import { readCachedFilters, writeCachedFilters } from '../../utils/itemsFilterCache';
+import { StickyTop } from '../StickyBar';
 
-// Sticky filter toggle + dropdown panel, sort control, and select-mode
-// toggle for the items list. Owns which branch/expiry/discount chips and
-// sort order are active, and reports the filtered+sorted+grouped result up
-// so the page can render it — the raw item list is the only thing it needs
-// from the parent.
+// Filter toggle + dropdown panel and sort control (no longer sticky — they
+// scroll with the page) plus a select-mode toggle that stays sticky on its
+// own, top-right, via StickyTop. Owns which branch/expiry/discount chips
+// and sort order are active, and reports the filtered+sorted+grouped result
+// up so the page can render it — the raw item list is the only thing it
+// needs from the parent.
 //
 // Selections are cached in sessionStorage (read once here on mount, via
 // `cached` below) so leaving the page and coming back restores them —
@@ -120,101 +122,108 @@ export default function FilterBar({ items, onFilterChange, initialDiscountFilter
   const discountGroups = DISCOUNT_GROUPS.map((g) => ({ ...g, label: t(`discountGroups.${g.key}`) }));
 
   return (
-    <div className="items-toolbar">
-      <div className="items-toolbar-left">
-        <div className="filter-bar">
-          <button
-            type="button"
-            className={`filter-toggle-btn${activeCount > 0 ? ' active' : ''}`}
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-          >
-            <FilterIcon />
-            {t('filterBar.filter')}
-            {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
-          </button>
+    <>
+      <div className="items-toolbar">
+        <div className="items-toolbar-left">
+          <div className="filter-bar">
+            <button
+              type="button"
+              className={`filter-toggle-btn${activeCount > 0 ? ' active' : ''}`}
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+            >
+              <FilterIcon />
+              {t('filterBar.filter')}
+              {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
+            </button>
 
-          {open && (
-            <div className="filter-panel">
-              {branchOptions.length > 0 && (
+            {open && (
+              <div className="filter-panel">
+                {branchOptions.length > 0 && (
+                  <div className="filter-group">
+                    <div className="filter-group-label">{t('filterBar.branch')}</div>
+                    <div className="filter-chip-row">
+                      {branchOptions.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`filter-chip${selectedBranches.has(value) ? ' selected' : ''}`}
+                          aria-pressed={selectedBranches.has(value)}
+                          onClick={() => toggleBranch(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="filter-group">
-                  <div className="filter-group-label">{t('filterBar.branch')}</div>
+                  <div className="filter-group-label">{t('filterBar.daysToExpire')}</div>
                   <div className="filter-chip-row">
-                    {branchOptions.map(({ value, label }) => (
+                    {expiryGroups.map(({ key, label }) => (
                       <button
-                        key={value}
+                        key={key}
                         type="button"
-                        className={`filter-chip${selectedBranches.has(value) ? ' selected' : ''}`}
-                        aria-pressed={selectedBranches.has(value)}
-                        onClick={() => toggleBranch(value)}
+                        className={`filter-chip${selectedExpiryKeys.has(key) ? ' selected' : ''}`}
+                        aria-pressed={selectedExpiryKeys.has(key)}
+                        onClick={() => toggleExpiryKey(key)}
                       >
                         {label}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
 
-              <div className="filter-group">
-                <div className="filter-group-label">{t('filterBar.daysToExpire')}</div>
-                <div className="filter-chip-row">
-                  {expiryGroups.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`filter-chip${selectedExpiryKeys.has(key) ? ' selected' : ''}`}
-                      aria-pressed={selectedExpiryKeys.has(key)}
-                      onClick={() => toggleExpiryKey(key)}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="filter-group">
+                  <div className="filter-group-label">{t('filterBar.discount')}</div>
+                  <div className="filter-chip-row">
+                    {discountGroups.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`filter-chip${selectedDiscountKeys.has(key) ? ' selected' : ''}`}
+                        aria-pressed={selectedDiscountKeys.has(key)}
+                        onClick={() => toggleDiscountKey(key)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="filter-group">
-                <div className="filter-group-label">{t('filterBar.discount')}</div>
-                <div className="filter-chip-row">
-                  {discountGroups.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`filter-chip${selectedDiscountKeys.has(key) ? ' selected' : ''}`}
-                      aria-pressed={selectedDiscountKeys.has(key)}
-                      onClick={() => toggleDiscountKey(key)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                {activeCount > 0 && (
+                  <button type="button" className="btn-link filter-clear-btn" onClick={clearFilters}>
+                    {t('filterBar.clearFilters')}
+                  </button>
+                )}
               </div>
+            )}
+          </div>
 
-              {activeCount > 0 && (
-                <button type="button" className="btn-link filter-clear-btn" onClick={clearFilters}>
-                  {t('filterBar.clearFilters')}
-                </button>
-              )}
-            </div>
-          )}
+          <label className="sort-select-label">
+            <span className="sort-select-label-text">{t('sortBar.label')}</span>
+            <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="expiry">{t('sortBar.expiry')}</option>
+              <option value="uploaded">{t('sortBar.uploaded')}</option>
+            </select>
+          </label>
         </div>
-
-        <label className="sort-select-label">
-          <span className="sort-select-label-text">{t('sortBar.label')}</span>
-          <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="expiry">{t('sortBar.expiry')}</option>
-            <option value="uploaded">{t('sortBar.uploaded')}</option>
-          </select>
-        </label>
       </div>
+
+      {/* Rendered outside .items-toolbar so it stays sticky on its own even
+          though filter/sort (above) no longer are. */}
       {isAdmin && (
-        <button
-          type="button"
-          className={`select-toggle-btn${selecting ? ' active' : ''}`}
-          onClick={() => setSelecting((s) => !s)}
-        >
-          {selecting ? t('items.cancel') : t('items.select')}
-        </button>
+        <StickyTop align="right">
+          <button
+            type="button"
+            className={`select-toggle-btn${selecting ? ' active' : ''}`}
+            onClick={() => setSelecting((s) => !s)}
+          >
+            {selecting ? t('items.cancel') : t('items.select')}
+          </button>
+        </StickyTop>
       )}
-    </div>
+    </>
   );
 }

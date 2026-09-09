@@ -10,6 +10,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
 import { scheduleIdle } from '../utils/idleSchedule';
+import { useScrolledPast } from '../hooks/useScrolledPast';
 
 // Lazy-loaded for the same reason as in ItemFormPage: pulls in @zxing/browser,
 // only needed by the minority of visits that tap the scan FAB.
@@ -23,20 +24,11 @@ export default function NavBar() {
   const [scanning, setScanning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // At the very top of the page the menu button renders inline in the
-  // (non-sticky) header, same as a normal nav item. Past a few pixels of
-  // scroll — once the header itself is on its way off-screen — it instead
-  // renders as its own fixed StickyTop, so it keeps floating over the
-  // content long after the header has scrolled away.
-  const [detached, setDetached] = useState(false);
-
-  useEffect(() => {
-    function onScroll() {
-      setDetached(window.scrollY > 8);
-    }
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  // (non-sticky) header, same as a normal nav item. Past 5% of a viewport
+  // height of scroll — once the header itself is on its way off-screen —
+  // it instead renders as its own fixed StickyTop, so it keeps floating
+  // over the content long after the header has scrolled away.
+  const detached = useScrolledPast(0.05);
 
   // NavBar mounts once for the whole authenticated app, so this is the one
   // place to warm the scanner chunk: fetch it at idle time (after the app's
@@ -69,7 +61,7 @@ export default function NavBar() {
   const menuToggleButton = (
     <button
       type="button"
-      className="icon-btn"
+      className="icon-btn menu-btn"
       onClick={() => setMenuOpen((o) => !o)}
       aria-label={t('nav.menu')}
       aria-expanded={menuOpen}
