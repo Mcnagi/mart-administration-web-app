@@ -7,6 +7,7 @@ import Toast from '../components/Toast';
 import SelectionBar from '../components/items/SelectionBar';
 import FilterBar from '../components/items/FilterBar';
 import ExpirySection from '../components/items/ExpirySection';
+import { hasLoadedThisRuntime, markLoadedThisRuntime } from '../utils/itemsFilterCache';
 
 export default function ItemsPage() {
   const { selecting: selectMode, setSelecting: setSelectMode } = useSelection();
@@ -15,10 +16,15 @@ export default function ItemsPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [filterResult, setFilterResult] = useState({ sections: [], filteredCount: 0, showHeadings: true });
 
-  // Every time this page is visited (including on refresh — nothing is
-  // persisted across visits), default the discount filter to "no discount"
-  // and remind the user with a self-dismissing toast.
-  const [showDiscountToast, setShowDiscountToast] = useState(true);
+  // Other filters (branch/expiry/sort) are cached across visits within the
+  // same tab session (see FilterBar), but the discount filter still resets
+  // to "no discount" — with a reminder toast — on a real page load: a hard
+  // refresh, or a brand-new tab/session. Navigating back to Items within
+  // the already-running app (e.g. from an item's detail) keeps whatever
+  // discount filter was last picked instead.
+  const [isFreshLoad] = useState(() => !hasLoadedThisRuntime());
+  const [showDiscountToast, setShowDiscountToast] = useState(isFreshLoad);
+  useEffect(() => markLoadedThisRuntime(), []);
 
   // Selection state is shared with NavBar (which hides the bottom nav while
   // selecting) via context, which outlives this page — clear it if the page
@@ -65,7 +71,11 @@ export default function ItemsPage() {
             />
           )}
 
-          <FilterBar items={items} onFilterChange={setFilterResult} initialDiscountFilter="none" />
+          <FilterBar
+            items={items}
+            onFilterChange={setFilterResult}
+            initialDiscountFilter={isFreshLoad ? 'none' : undefined}
+          />
 
           {filteredCount === 0 ? (
             <p className="empty-state">{t('items.emptyFiltered')}</p>

@@ -12,24 +12,42 @@ import {
   DISCOUNT_GROUPS,
 } from '../../services/itemService';
 import { FilterIcon } from '../icons';
+import { readCachedFilters, writeCachedFilters } from '../../utils/itemsFilterCache';
 
 // Sticky filter toggle + dropdown panel, sort control, and select-mode
 // toggle for the items list. Owns which branch/expiry/discount chips and
 // sort order are active, and reports the filtered+sorted+grouped result up
 // so the page can render it — the raw item list is the only thing it needs
 // from the parent.
+//
+// Selections are cached in sessionStorage (read once here on mount, via
+// `cached` below) so leaving the page and coming back restores them —
+// except discount, which the parent can force back to a specific value via
+// initialDiscountFilter regardless of what's cached (see ItemsPage).
 export default function FilterBar({ items, onFilterChange, initialDiscountFilter }) {
   const { isAdmin } = useAuth();
   const { selecting, setSelecting } = useSelection();
   const { t } = useTranslation();
 
+  const cached = readCachedFilters();
+
   const [open, setOpen] = useState(false);
-  const [selectedBranches, setSelectedBranches] = useState(new Set());
-  const [selectedExpiryKeys, setSelectedExpiryKeys] = useState(new Set());
-  const [selectedDiscountKeys, setSelectedDiscountKeys] = useState(
-    () => new Set(initialDiscountFilter ? [initialDiscountFilter] : []),
-  );
-  const [sortBy, setSortBy] = useState('expiry');
+  const [selectedBranches, setSelectedBranches] = useState(() => new Set(cached?.branches ?? []));
+  const [selectedExpiryKeys, setSelectedExpiryKeys] = useState(() => new Set(cached?.expiryKeys ?? []));
+  const [selectedDiscountKeys, setSelectedDiscountKeys] = useState(() => {
+    if (initialDiscountFilter) return new Set([initialDiscountFilter]);
+    return new Set(cached?.discountKeys ?? []);
+  });
+  const [sortBy, setSortBy] = useState(() => cached?.sortBy ?? 'expiry');
+
+  useEffect(() => {
+    writeCachedFilters({
+      branches: [...selectedBranches],
+      expiryKeys: [...selectedExpiryKeys],
+      discountKeys: [...selectedDiscountKeys],
+      sortBy,
+    });
+  }, [selectedBranches, selectedExpiryKeys, selectedDiscountKeys, sortBy]);
 
   function toggleBranch(branch) {
     setSelectedBranches((prev) => {
