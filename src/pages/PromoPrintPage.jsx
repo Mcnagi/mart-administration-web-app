@@ -61,6 +61,19 @@ export default function PromoPrintPage() {
   const { pageSize, sheetClassName, templateSlot, paired } = LAYOUTS[layout];
   const pairs = paired ? chunkPairs(promos) : null;
 
+  // iOS silently no-ops window.print() when the app is running standalone
+  // (added to the Home Screen) — there's no Safari chrome to host the print
+  // sheet. Escape to a real Safari tab, where the same button works.
+  const handlePrint = () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone === true;
+    if (isIOS && isStandalone) {
+      window.open(window.location.href, '_blank');
+      return;
+    }
+    window.print();
+  };
+
   return (
     <>
       <style>{`@page { size: ${pageSize}; margin: 0; }`}</style>
@@ -68,7 +81,7 @@ export default function PromoPrintPage() {
         <Link to="/promos" className="btn-outline">
           {t('promos.backToLibrary')}
         </Link>
-        <button type="button" className="btn-primary" onClick={() => window.print()} disabled={promos.length === 0}>
+        <button type="button" className="btn-primary" onClick={handlePrint} disabled={promos.length === 0}>
           {t('promos.print')}
         </button>
       </div>
