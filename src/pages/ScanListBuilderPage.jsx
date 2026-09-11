@@ -112,7 +112,7 @@ export default function ScanListBuilderPage() {
       setError(t('scanLists.itemNotFound', { barcode: trimmed }));
       return;
     }
-    setItems((prev) => addScannedBarcode(prev, trimmed, info.name, info.nameKo));
+    setItems((prev) => addScannedBarcode(prev, trimmed, info));
   }
 
   function handleTagChange(e) {

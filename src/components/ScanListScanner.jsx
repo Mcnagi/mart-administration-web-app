@@ -37,7 +37,7 @@ export default function ScanListScanner({ items, onItemAdded, onClose }) {
       setToast(t('scanLists.itemNotFound', { barcode }));
       return;
     }
-    const nextItems = addScannedBarcode(itemsRef.current, barcode, info.name, info.nameKo);
+    const nextItems = addScannedBarcode(itemsRef.current, barcode, info);
     itemsRef.current = nextItems;
     onItemAdded(nextItems);
     const added = nextItems.find((item) => item.barcode === barcode);

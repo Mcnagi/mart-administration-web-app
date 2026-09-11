@@ -5,7 +5,7 @@
 // directly.
 import * as scanListsApi from '../api/scanListsApi';
 import * as scanListTagsApi from '../api/scanListTagsApi';
-import { fetchDataRowForBarcode } from './itemService';
+import { getDataByBarcode } from '../api/dataApi';
 import { t } from '../i18n/i18n';
 
 // A scan list in progress (name/tag/items) not yet saved — kept so a misclick
@@ -27,39 +27,58 @@ export function defaultScanListName(date = new Date()) {
   return `${datePart}-${timePart}`;
 }
 
-// A scan-list row needs an English display name and, when available, the
-// Korean name (`product2`) — both live on the imported `data` collection row
-// for this barcode (see itemService.fetchDataRowForBarcode, the same source
-// PromoBuilderPage pulls nameKo from). Deliberately does NOT fall back to the
-// external barcode API (unlike itemService.resolveProductName) — scan lists
-// only care about names already on file in our own imported data, not a
-// public lookup. A miss retries once with a zero-prefixed barcode, since a
-// common UPC-A (12-digit) / EAN-13 (13-digit, leading "0") mismatch means the
-// code the camera reads and the code the import stored can differ by exactly
-// that leading zero.
+// Every field a scan-list row can carry lives on the imported `data`
+// collection row for this barcode — name/Korean name, category, maker, and
+// sale price. Returns null when the row has no product name, since that's
+// the "not actually a match" signal callers check for.
+function scannedItemInfoFromRow(row) {
+  if (!row?.product) return null;
+  return {
+    name: row.product,
+    nameKo: row.product2 || '',
+    category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
+    maker: row.maker || '',
+    salePrice: row.salePrice || '',
+  };
+}
+
+// Deliberately does NOT fall back to the external barcode API (unlike
+// itemService.resolveProductName) — scan lists only care about names
+// already on file in our own imported data, not a public lookup. A miss
+// retries once with a zero-prefixed barcode, since a common UPC-A
+// (12-digit) / EAN-13 (13-digit, leading "0") mismatch means the code the
+// camera reads and the code the import stored can differ by exactly that
+// leading zero.
 export async function resolveScannedItemInfo(barcode) {
-  const row = await fetchDataRowForBarcode(barcode).catch(() => null);
-  if (row?.product) {
-    return { name: row.product, nameKo: row.product2 || '' };
-  }
-  const zeroPrefixedRow = await fetchDataRowForBarcode(`0${barcode}`).catch(() => null);
-  if (zeroPrefixedRow?.product) {
-    return { name: zeroPrefixedRow.product, nameKo: zeroPrefixedRow.product2 || '' };
-  }
-  return { name: '', nameKo: '' };
+  const row = await getDataByBarcode(barcode).catch(() => null);
+  const info = scannedItemInfoFromRow(row);
+  if (info) return info;
+  const zeroPrefixedRow = await getDataByBarcode(`0${barcode}`).catch(() => null);
+  return scannedItemInfoFromRow(zeroPrefixedRow) || { name: '', nameKo: '', category: '', maker: '', salePrice: '' };
 }
 
 // Pure array transform, no Firestore call: increments quantity if `barcode`
 // is already in the list (repeat scan of the same item), otherwise appends
-// a new row. Callers only add a barcode after resolveScannedItemInfo found a
-// real name (see ScanListScanner/ScanListBuilderPage) — an unmatched barcode
-// is never added — but `resolvedName` still falls back to the barcode itself
-// as a defensive default, in case that invariant doesn't hold for a future
-// caller.
-export function addScannedBarcode(items, barcode, resolvedName, resolvedNameKo) {
+// a new row built from `info` (see resolveScannedItemInfo). Callers only add
+// a barcode after resolveScannedItemInfo found a real name (see
+// ScanListScanner/ScanListBuilderPage) — an unmatched barcode is never added
+// — but `info.name` still falls back to the barcode itself as a defensive
+// default, in case that invariant doesn't hold for a future caller.
+export function addScannedBarcode(items, barcode, info) {
   const index = items.findIndex((item) => item.barcode === barcode);
   if (index === -1) {
-    return [...items, { barcode, name: resolvedName || barcode, nameKo: resolvedNameKo || '', quantity: 1 }];
+    return [
+      ...items,
+      {
+        barcode,
+        name: info.name || barcode,
+        nameKo: info.nameKo || '',
+        category: info.category || '',
+        maker: info.maker || '',
+        salePrice: info.salePrice || '',
+        quantity: 1,
+      },
+    ];
   }
   return items.map((item, i) => (i === index ? { ...item, quantity: item.quantity + 1 } : item));
 }
@@ -163,18 +182,26 @@ export function clearScanListDraft() {
   }
 }
 
+// "barcode" -> "Barcode", "salePrice" -> "Sale Price".
+function keyToColumnLabel(key) {
+  return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+}
+
 // Lazy-loads @e965/xlsx (same pattern as dataService.parseExcelFile) and
 // triggers a browser download of the list as a single-sheet workbook. Works
 // on an in-progress (not yet saved) list just as well as a saved one, since
-// it only reads `name`/`items` off whatever object it's given.
+// it only reads `name`/`items` off whatever object it's given. Columns are
+// derived from whatever keys the items actually carry (rather than a fixed
+// list here) so a new field added to addScannedBarcode shows up in the
+// export automatically. The key set is taken across all items, not just the
+// first, since an older saved list's items may be missing a field a newer
+// one has (e.g. category/maker/salePrice, added after that list was saved).
 export async function exportScanListToExcel(scanList) {
   const XLSX = await import('@e965/xlsx');
-  const rows = scanList.items.map((item) => ({
-    Barcode: item.barcode,
-    Name: item.name,
-    'Name (Korean)': item.nameKo || '',
-    Quantity: item.quantity,
-  }));
+  const keys = [...new Set(scanList.items.flatMap((item) => Object.keys(item)))];
+  const rows = scanList.items.map((item) =>
+    Object.fromEntries(keys.map((key) => [keyToColumnLabel(key), item[key] ?? '']))
+  );
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'Items');
