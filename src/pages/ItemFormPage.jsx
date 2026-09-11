@@ -211,7 +211,7 @@ export default function ItemFormPage() {
         },
         user.uid
       );
-      navigate('/');
+      navigate('/items');
     } catch (err) {
       setError(err.message || t('itemForm.errorSave'));
     } finally {
@@ -224,7 +224,7 @@ export default function ItemFormPage() {
     setSaving(true);
     try {
       await removeItem(itemId);
-      navigate('/');
+      navigate('/items');
     } catch (err) {
       setError(err.message || t('itemForm.errorDelete'));
       setSaving(false);
@@ -291,7 +291,7 @@ export default function ItemFormPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <button type="button" className="icon-btn" onClick={() => navigate('/')} aria-label={t('itemForm.back')}>
+        <button type="button" className="icon-btn" onClick={() => navigate('/items')} aria-label={t('itemForm.back')}>
           <BackIcon />
         </button>
         <h2>{isEditing ? t('itemForm.editTitle') : t('itemForm.addTitle')}</h2>

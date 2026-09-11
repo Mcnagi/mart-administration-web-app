@@ -113,6 +113,16 @@ export function CloseIcon(props) {
   );
 }
 
+export function HomeIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9.5a1 1 0 001 1h10a1 1 0 001-1V10" />
+      <path d="M10 20.5v-6h4v6" />
+    </svg>
+  );
+}
+
 export function ScanListIcon(props) {
   return (
     <svg {...common} {...props}>

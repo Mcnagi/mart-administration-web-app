@@ -197,6 +197,52 @@ h1, h2, h3 {
   color: var(--text-muted);
 }
 
+/* ---------- Home page (tile grid) ---------- */
+
+.home-page {
+  max-width: 640px;
+  padding-top: 32px;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+}
+
+.home-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.home-tile:active {
+  transform: scale(0.97);
+}
+
+.home-tile svg {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.home-tile.active {
+  border-color: var(--accent);
+}
+
 /* ---------- Sticky bar primitives ----------
    Floating bars pinned to the viewport edge (top or bottom) and anchored to
    the left, mid, or right side. Width is content-sized (max-content), never

@@ -11,6 +11,7 @@ export const translations = {
   en: {
     nav: {
       menu: 'Menu',
+      home: 'Home',
       items: 'Items',
       promos: 'Promos',
       admin: 'Admin',
@@ -329,6 +330,7 @@ export const translations = {
   ko: {
     nav: {
       menu: '메뉴',
+      home: '홈',
       items: '품목',
       promos: '프로모션',
       admin: '관리자',

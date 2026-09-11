@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { APP_NAME } from '../appConfig';
-import { ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon } from './icons';
+import { HomeIcon, ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
@@ -21,6 +21,8 @@ export default function NavBar() {
   const { selecting } = useSelection();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isHome = pathname === '/';
   const [scanning, setScanning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // At the very top of the page the menu button renders inline in the
@@ -73,7 +75,7 @@ export default function NavBar() {
   return (
     <>
       <header className="top-bar">
-        <div className="top-bar-left">{!detached && menuToggleButton}</div>
+        <div className="top-bar-left">{!isHome && !detached && menuToggleButton}</div>
         <span className="navbar-brand">{APP_NAME}</span>
         <div className="top-bar-actions">
           <LanguageSwitcher />
@@ -86,14 +88,15 @@ export default function NavBar() {
       {/* Rendered outside .top-bar once detached, so it's fixed to the
           viewport rather than to the header (which has backdrop-filter, and
           so would otherwise become the containing block for a fixed child)
-          — see .menu-toggle-wrap. */}
-      {detached && (
+          — see .menu-toggle-wrap. The home page has its own tile grid in
+          place of this menu, so the toggle never appears there. */}
+      {!isHome && detached && (
         <StickyTop align="left" className="menu-toggle-wrap">
           {menuToggleButton}
         </StickyTop>
       )}
 
-      {menuOpen && (
+      {!isHome && menuOpen && (
         <>
           <button
             type="button"
@@ -104,6 +107,10 @@ export default function NavBar() {
           <StickyTop align="left" className="nav-menu-panel">
             <div className="nav-menu-header">{t('nav.menu')}</div>
             <NavLink to="/" end className={navLinkClass} onClick={() => setMenuOpen(false)}>
+              <HomeIcon />
+              <span>{t('nav.home')}</span>
+            </NavLink>
+            <NavLink to="/items" className={navLinkClass} onClick={() => setMenuOpen(false)}>
               <ItemsIcon />
               <span>{t('nav.items')}</span>
             </NavLink>

@@ -8,6 +8,7 @@ import NavBar from './components/NavBar';
 import LoadingSpinner from './components/LoadingSpinner';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const HomePage = lazy(() => import('./pages/HomePage'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage'));
 const ItemFormPage = lazy(() => import('./pages/ItemFormPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
@@ -44,7 +45,8 @@ function AppLayout() {
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route element={<ProtectedRoute />}>
-                  <Route path="/" element={<ItemsPage />} />
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/items" element={<ItemsPage />} />
                   <Route path="/add" element={<ItemFormPage />} />
                   <Route path="/edit/:itemId" element={<ItemFormPage />} />
                   <Route path="/promos" element={<PromoLibraryPage />} />
