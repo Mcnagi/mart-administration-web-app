@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SelectionProvider } from './context/SelectionContext';
 import { ItemsProvider } from './context/ItemsContext';
@@ -15,6 +15,21 @@ const AccountPage = lazy(() => import('./pages/AccountPage'));
 const PromoLibraryPage = lazy(() => import('./pages/PromoLibraryPage'));
 const PromoBuilderPage = lazy(() => import('./pages/PromoBuilderPage'));
 const PromoPrintPage = lazy(() => import('./pages/PromoPrintPage'));
+const ScanListHistoryPage = lazy(() => import('./pages/ScanListHistoryPage'));
+const ScanListBuilderPage = lazy(() => import('./pages/ScanListBuilderPage'));
+
+// React Router's client-side navigation never resets window scroll on its
+// own — without this, a route entered while scrolled down (e.g. clicking
+// Print after scrolling through the promo library) keeps that leftover
+// scrollY, which spuriously trips NavBar's useScrolledPast(0.05) and floats
+// its detached menu button over the new page's top content.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 function AppLayout() {
   const { loading } = useAuth();
@@ -23,6 +38,7 @@ function AppLayout() {
     <div className="app-shell">
       <ItemsProvider>
         <SelectionProvider>
+          <ScrollToTop />
           <NavBar />
           <main className="app-main">
             <Suspense fallback={<LoadingSpinner />}>
@@ -35,6 +51,9 @@ function AppLayout() {
                   <Route path="/promos/new" element={<PromoBuilderPage />} />
                   <Route path="/promos/print" element={<PromoPrintPage />} />
                   <Route path="/promos/:promoId/edit" element={<PromoBuilderPage />} />
+                  <Route path="/scan-lists" element={<ScanListHistoryPage />} />
+                  <Route path="/scan-lists/new" element={<ScanListBuilderPage />} />
+                  <Route path="/scan-lists/:scanListId/edit" element={<ScanListBuilderPage />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route element={<AdminRoute />}>
                     <Route path="/admin" element={<AdminUsersPage />} />

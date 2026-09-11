@@ -5,7 +5,7 @@ import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { APP_NAME } from '../appConfig';
-import { ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon } from './icons';
+import { ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
@@ -110,6 +110,10 @@ export default function NavBar() {
             <NavLink to="/promos" className={navLinkClass} onClick={() => setMenuOpen(false)}>
               <PromoIcon />
               <span>{t('nav.promos')}</span>
+            </NavLink>
+            <NavLink to="/scan-lists" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+              <ScanListIcon />
+              <span>{t('nav.scanLists')}</span>
             </NavLink>
             {isAdmin && (
               <NavLink to="/admin" className={navLinkClass} onClick={() => setMenuOpen(false)}>

@@ -6,7 +6,7 @@ import { NotFoundException } from '@zxing/library';
 import { useTranslation } from '../context/LanguageContext';
 import { BackIcon } from './icons';
 
-export default function BarcodeScanner({ onDetected, onClose, onManualEntry }) {
+export default function BarcodeScanner({ onDetected, onClose, onManualEntry, manualEntryLabel }) {
   const { t } = useTranslation();
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
@@ -61,7 +61,7 @@ export default function BarcodeScanner({ onDetected, onClose, onManualEntry }) {
           <p>{error}</p>
           {onManualEntry && (
             <button type="button" className="barcode-scanner-manual-link" onClick={onManualEntry}>
-              {t('barcodeScanner.manualEntry')}
+              {manualEntryLabel || t('barcodeScanner.manualEntry')}
             </button>
           )}
         </div>
@@ -71,7 +71,7 @@ export default function BarcodeScanner({ onDetected, onClose, onManualEntry }) {
           <div className="barcode-scanner-frame" />
           {onManualEntry && (
             <button type="button" className="barcode-scanner-manual-link" onClick={onManualEntry}>
-              {t('barcodeScanner.manualEntry')}
+              {manualEntryLabel || t('barcodeScanner.manualEntry')}
             </button>
           )}
         </div>

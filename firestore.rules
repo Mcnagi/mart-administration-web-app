@@ -72,6 +72,25 @@ service cloud.firestore {
       allow update, delete: if isActive();
     }
 
+    // Scan lists: a user builds one by scanning barcodes (see
+    // components/ScanListScanner.jsx and services/scanListService.js) and can
+    // save it, browse history, or delete it — shared across all active
+    // users, same access model as items/promos (not a per-user private
+    // list).
+    match /scanLists/{scanListId} {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isActive();
+    }
+
+    // Tag vocabulary for scan lists, managed by admins on /admin (see
+    // components/admin/ScanListTagsForm.jsx) — any active user can read the
+    // list to populate the picker, but only admins can add/remove a tag.
+    match /scanListTags/{tagId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
     // Imported product rows, keyed by barcode. Also holds a `photos` field
     // per doc caching candidate product images found via search (see
     // services/photoSearchService.js), and a `photo` field caching whichever

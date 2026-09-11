@@ -104,3 +104,21 @@ export function BarcodeIcon(props) {
     </svg>
   );
 }
+
+export function CloseIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+export function ScanListIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <rect x="5" y="4" width="14" height="17" rx="1.5" />
+      <path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1" />
+      <path d="M8 10h8M8 13.5h8M8 17h5" />
+    </svg>
+  );
+}
