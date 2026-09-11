@@ -41,21 +41,50 @@ export default function AdminUsersPage() {
 
   if (users === null) return <LoadingSpinner />;
 
+  const sections = [
+    { id: 'admin-import', label: t('admin.importTitle') },
+    { id: 'admin-scan-tags', label: t('admin.scanListTagsTitle') },
+    { id: 'admin-companies', label: t('admin.companiesTitle') },
+    { id: 'admin-users', label: t('admin.usersTitle') },
+    { id: 'admin-create-user', label: t('admin.createUserTitle') },
+  ];
+
   return (
-    <div className="page">
-      <h2>{t('admin.title')}</h2>
+    <div className="page admin-page">
+      <div className="admin-layout">
+        <nav className="admin-sidebar" aria-label={t('nav.admin')}>
+          {sections.map((s) => (
+            <a key={s.id} href={`#${s.id}`}>
+              {s.label}
+            </a>
+          ))}
+        </nav>
 
-      <CreateUserForm onCreated={refresh} />
+        <div className="admin-sections">
+          <section id="admin-import" className="admin-section">
+            <ImportDataForm />
+          </section>
 
-      {error && <div className="form-error">{error}</div>}
+          <section id="admin-scan-tags" className="admin-section">
+            <ScanListTagsForm />
+          </section>
 
-      <ImportDataForm />
+          <section id="admin-companies" className="admin-section">
+            <CompaniesForm />
+          </section>
 
-      <ScanListTagsForm />
+          <section id="admin-users" className="admin-section">
+            <h3>{t('admin.usersTitle')}</h3>
+            {error && <div className="form-error">{error}</div>}
+            <UserList users={users} currentUid={currentProfile.uid} onChanged={refresh} />
+          </section>
 
-      <CompaniesForm />
-
-      <UserList users={users} currentUid={currentProfile.uid} onChanged={refresh} />
+          <section id="admin-create-user" className="admin-section">
+            <h3>{t('admin.createUserTitle')}</h3>
+            <CreateUserForm onCreated={refresh} />
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

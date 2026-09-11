@@ -142,7 +142,7 @@ export default function CompaniesForm() {
       ) : companies.length === 0 ? (
         <p className="import-hint">{t('admin.noCompanies')}</p>
       ) : (
-        <ul className="user-list">
+        <ul className="user-list scroll-list">
           {companies.map((company) => (
             <li key={company.id} className="user-row">
               <div className="user-row-info">

@@ -685,6 +685,67 @@ h1, h2, h3 {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- Admin page layout ---------- */
+
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.admin-section {
+  scroll-margin-top: calc(var(--topbar-h) + 16px);
+}
+
+.admin-section + .admin-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-sidebar a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.admin-sidebar a:hover {
+  color: var(--text-h);
+  background: var(--surface);
+}
+
+@media (min-width: 700px) {
+  .admin-page {
+    max-width: 960px;
+  }
+
+  .admin-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 32px;
+  }
+
+  .admin-sidebar {
+    flex: 0 0 170px;
+    position: sticky;
+    top: calc(var(--topbar-h) + 16px);
+  }
+
+  .admin-sections {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .item-form label, .auth-form label {
   display: flex;
   flex-direction: column;
@@ -1435,6 +1496,11 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.scroll-list {
+  max-height: 360px;
+  overflow-y: auto;
 }
 
 .user-row {
