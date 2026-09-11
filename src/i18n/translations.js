@@ -298,6 +298,10 @@ export const translations = {
       errorSaveCompany: 'Failed to save company.',
       errorDeleteCompany: 'Failed to delete company.',
       confirmDeleteCompany: 'Delete company "{name}"?',
+      companiesImportHint:
+        'Upload a .csv, .xlsx, or .xls file with a header row containing "Code" and "Name" columns. Existing codes are updated; new codes are added.',
+      companiesImportButton: 'Import',
+      companiesImportSummary: 'Imported {imported} row(s), skipped {skipped}.',
     },
     common: {
       loading: 'Loading',
@@ -325,6 +329,7 @@ export const translations = {
       tagLabelRequired: 'Tag name is required.',
       companyNameRequired: 'Company name is required.',
       companyCodeInvalid: 'Code must be a positive whole number.',
+      importCompaniesMissingColumns: 'The file must have "Code" and "Name" columns.',
     },
   },
   ko: {
@@ -617,6 +622,10 @@ export const translations = {
       errorSaveCompany: '업체를 저장하지 못했습니다.',
       errorDeleteCompany: '업체를 삭제하지 못했습니다.',
       confirmDeleteCompany: '"{name}" 업체를 삭제하시겠습니까?',
+      companiesImportHint:
+        '"Code"와 "Name" 열이 포함된 머리글 행이 있는 .csv, .xlsx 또는 .xls 파일을 업로드하세요. 기존 코드는 갱신되고, 새 코드는 추가됩니다.',
+      companiesImportButton: '가져오기',
+      companiesImportSummary: '{imported}개 행을 가져왔고, {skipped}개 행을 건너뛰었습니다.',
     },
     common: {
       loading: '로딩 중',
@@ -644,6 +653,7 @@ export const translations = {
       tagLabelRequired: '태그 이름을 입력해야 합니다.',
       companyNameRequired: '업체명을 입력해야 합니다.',
       companyCodeInvalid: '코드는 양의 정수여야 합니다.',
+      importCompaniesMissingColumns: '파일에 "Code"와 "Name" 열이 있어야 합니다.',
     },
   },
 };

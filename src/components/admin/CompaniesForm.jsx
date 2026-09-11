@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { fetchCompanies, saveCompany, removeCompany } from '../../services/companyService';
+import { fetchCompanies, saveCompany, removeCompany, parseCompaniesFile, uploadCompanies } from '../../services/companyService';
 import LoadingSpinner from '../LoadingSpinner';
+
+const PREVIEW_ROW_COUNT = 5;
 
 export default function CompaniesForm() {
   const { t } = useTranslation();
@@ -11,6 +13,12 @@ export default function CompaniesForm() {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [importParsing, setImportParsing] = useState(false);
+  const [importParsed, setImportParsed] = useState(null);
+  const [importUploading, setImportUploading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importSummary, setImportSummary] = useState(null);
+  const importInputRef = useRef(null);
 
   function refresh() {
     return fetchCompanies()
@@ -60,6 +68,47 @@ export default function CompaniesForm() {
     } catch (err) {
       setError(err.message || t('admin.errorDeleteCompany'));
     }
+  }
+
+  async function handleImportFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError('');
+    setImportSummary(null);
+    setImportParsed(null);
+    setImportParsing(true);
+    try {
+      const result = await parseCompaniesFile(file);
+      setImportParsed(result);
+    } catch (err) {
+      setImportError(err.message || t('admin.errorImport'));
+      if (importInputRef.current) importInputRef.current.value = '';
+    } finally {
+      setImportParsing(false);
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (!importParsed) return;
+    setImportError('');
+    setImportUploading(true);
+    try {
+      const { imported } = await uploadCompanies(importParsed.rows);
+      setImportSummary({ imported, skipped: importParsed.skipped });
+      setImportParsed(null);
+      if (importInputRef.current) importInputRef.current.value = '';
+      await refresh();
+    } catch (err) {
+      setImportError(err.message || t('admin.errorImport'));
+    } finally {
+      setImportUploading(false);
+    }
+  }
+
+  function handleImportCancel() {
+    setImportParsed(null);
+    setImportError('');
+    if (importInputRef.current) importInputRef.current.value = '';
   }
 
   return (
@@ -112,6 +161,56 @@ export default function CompaniesForm() {
           ))}
         </ul>
       )}
+
+      <p className="import-hint">{t('admin.companiesImportHint')}</p>
+      <label>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv,.tsv,.txt"
+          onChange={handleImportFileChange}
+          disabled={importParsing || importUploading}
+        />
+      </label>
+      {importParsing && <LoadingSpinner />}
+      {importParsed && (
+        <div className="import-preview">
+          <h4>{t('admin.previewTitle')}</h4>
+          <p className="import-hint">{t('admin.totalRows', { total: importParsed.totalRows })}</p>
+          <div className="import-preview-table-wrap">
+            <table className="import-preview-table">
+              <thead>
+                <tr>
+                  <th>{t('admin.companyCode')}</th>
+                  <th>{t('admin.companyName')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {importParsed.rows.slice(0, PREVIEW_ROW_COUNT).map((row) => (
+                  <tr key={row.code}>
+                    <td>{row.code}</td>
+                    <td>{row.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn-primary" onClick={handleImportConfirm} disabled={importUploading}>
+              {importUploading ? t('admin.importing') : t('admin.companiesImportButton')}
+            </button>
+            <button type="button" className="btn-outline" onClick={handleImportCancel} disabled={importUploading}>
+              {t('admin.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+      {importSummary && (
+        <div className="callout">
+          {t('admin.companiesImportSummary', { imported: importSummary.imported, skipped: importSummary.skipped })}
+        </div>
+      )}
+      {importError && <div className="form-error">{importError}</div>}
     </div>
   );
 }
