@@ -112,10 +112,14 @@ h1, h2, h3 {
 
 /* ---------- Nav ---------- */
 
+/* Three-column grid, not flex space-between: the outer two columns are
+   equal (1fr each) regardless of what they contain, which keeps the brand
+   in the middle column truly centered on the bar — including while the
+   menu button toggles in and out of .top-bar-left (see NavBar.jsx). */
 .top-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   min-height: var(--topbar-h);
   box-sizing: border-box;
   padding: 8px 14px;
@@ -134,9 +138,11 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   gap: 4px;
+  justify-self: start;
 }
 
 .navbar-brand {
+  justify-self: center;
   font-weight: 700;
   font-size: 16px;
   color: var(--text-h);
@@ -146,6 +152,7 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-self: end;
 }
 
 .icon-btn {
@@ -225,6 +232,39 @@ h1, h2, h3 {
   right: max(12px, env(safe-area-inset-right));
 }
 
+/* Liquid-glass material shared by every sticky floating button (the menu
+   toggle once detached, the select toggle once detached, the scan FAB, and
+   back-to-top): a frosted, translucent surface with a soft top highlight,
+   the same recipe the old bottom tab bar used, rather than a flat opaque
+   chip. */
+.menu-toggle-wrap .icon-btn,
+.select-toggle-wrap .select-toggle-btn,
+.scan-fab,
+.back-to-top-btn {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.4));
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 10px 30px rgba(16, 14, 23, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  .menu-toggle-wrap .icon-btn,
+  .select-toggle-wrap .select-toggle-btn,
+  .scan-fab,
+  .back-to-top-btn {
+    background: linear-gradient(180deg, rgba(40, 38, 48, 0.7), rgba(26, 24, 33, 0.55));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* ---------- Nav menu (collapsible, top-left) ---------- */
 
 /* Sticky on its own, independent of .top-bar's stickiness, and pinned below
@@ -235,16 +275,14 @@ h1, h2, h3 {
   top: max(calc(var(--topbar-h) + 10px), calc(env(safe-area-inset-top) + 10px));
 }
 
-/* Its own surface chip (the header's frosted background doesn't extend down
-   here), matching the look of the other floating toolbar buttons. */
+/* Glass background/border/shadow come from the shared rule above — this
+   just marks it purple, which is plain (inheriting .icon-btn's transparent
+   look) while inline in the header at the top. */
 .menu-toggle-wrap .icon-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  color: var(--accent);
 }
 
 .menu-toggle-wrap .icon-btn:hover {
-  background: rgba(124, 58, 237, 0.12);
   color: var(--accent);
 }
 
@@ -337,6 +375,8 @@ h1, h2, h3 {
 
 /* ---------- Scan FAB (sticky bottom-right) ---------- */
 
+/* Purple icon + white boundary, same as the other sticky toolbar buttons —
+   this one is always floating, so it's always shown. */
 .scan-fab {
   display: flex;
   align-items: center;
@@ -344,21 +384,14 @@ h1, h2, h3 {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: var(--accent);
   cursor: pointer;
-  box-shadow: var(--shadow);
-  transition: transform 0.15s ease, color 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .scan-fab svg {
   width: 21px;
   height: 21px;
-}
-
-.scan-fab:hover {
-  color: var(--accent);
 }
 
 .scan-fab:active {
@@ -373,6 +406,8 @@ h1, h2, h3 {
   bottom: max(74px, calc(env(safe-area-inset-bottom) + 64px));
 }
 
+/* Purple icon + white boundary, same as the other sticky toolbar buttons —
+   this one is always floating, so it's always shown. */
 .back-to-top-btn {
   display: flex;
   align-items: center;
@@ -380,21 +415,14 @@ h1, h2, h3 {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: var(--accent);
   cursor: pointer;
-  box-shadow: var(--shadow);
-  transition: transform 0.15s ease, color 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .back-to-top-btn svg {
   width: 19px;
   height: 19px;
-}
-
-.back-to-top-btn:hover {
-  color: var(--accent);
 }
 
 .back-to-top-btn:active {
@@ -1196,6 +1224,14 @@ textarea:focus {
 
 .select-toggle-btn {
   flex: none;
+}
+
+/* Glass background/border/shadow come from the shared rule above — this
+   just marks the text purple, which is plain (inheriting the base
+   select-toggle-btn look) while inline in the toolbar at the top. See
+   FilterBar.jsx / PromoLibraryBrowser.jsx. */
+.select-toggle-wrap .select-toggle-btn {
+  color: var(--accent);
 }
 
 .filter-toggle-btn svg {

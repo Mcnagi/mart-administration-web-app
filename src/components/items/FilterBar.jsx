@@ -14,13 +14,17 @@ import {
 import { FilterIcon } from '../icons';
 import { readCachedFilters, writeCachedFilters } from '../../utils/itemsFilterCache';
 import { StickyTop } from '../StickyBar';
+import { useScrolledPast } from '../../hooks/useScrolledPast';
 
-// Filter toggle + dropdown panel and sort control (no longer sticky — they
-// scroll with the page) plus a select-mode toggle that stays sticky on its
-// own, top-right, via StickyTop. Owns which branch/expiry/discount chips
-// and sort order are active, and reports the filtered+sorted+grouped result
-// up so the page can render it — the raw item list is the only thing it
-// needs from the parent.
+// Filter toggle + dropdown panel and sort control (never sticky — they
+// scroll with the page) plus a select-mode toggle that sits inline with
+// them, aligned in the same row, while at the top of the page — then, past
+// 5% of a viewport height of scroll, detaches into its own fixed StickyTop
+// so it keeps working once the toolbar has scrolled away (same pattern as
+// NavBar's menu button). Owns which branch/expiry/discount chips and sort
+// order are active, and reports the filtered+sorted+grouped result up so
+// the page can render it — the raw item list is the only thing it needs
+// from the parent.
 //
 // Selections are cached in sessionStorage (read once here on mount, via
 // `cached` below) so leaving the page and coming back restores them —
@@ -30,6 +34,7 @@ export default function FilterBar({ items, onFilterChange, initialDiscountFilter
   const { isAdmin } = useAuth();
   const { selecting, setSelecting } = useSelection();
   const { t } = useTranslation();
+  const detached = useScrolledPast(0.05);
 
   const cached = readCachedFilters();
 
@@ -121,6 +126,16 @@ export default function FilterBar({ items, onFilterChange, initialDiscountFilter
   const expiryGroups = EXPIRY_GROUPS.map((g) => ({ ...g, label: t(`expiryGroups.${g.key}`) }));
   const discountGroups = DISCOUNT_GROUPS.map((g) => ({ ...g, label: t(`discountGroups.${g.key}`) }));
 
+  const selectToggleButton = (
+    <button
+      type="button"
+      className={`select-toggle-btn${selecting ? ' active' : ''}`}
+      onClick={() => setSelecting((s) => !s)}
+    >
+      {selecting ? t('items.cancel') : t('items.select')}
+    </button>
+  );
+
   return (
     <>
       <div className="items-toolbar">
@@ -209,19 +224,15 @@ export default function FilterBar({ items, onFilterChange, initialDiscountFilter
             </select>
           </label>
         </div>
+
+        {isAdmin && !detached && selectToggleButton}
       </div>
 
-      {/* Rendered outside .items-toolbar so it stays sticky on its own even
-          though filter/sort (above) no longer are. */}
-      {isAdmin && (
-        <StickyTop align="right">
-          <button
-            type="button"
-            className={`select-toggle-btn${selecting ? ' active' : ''}`}
-            onClick={() => setSelecting((s) => !s)}
-          >
-            {selecting ? t('items.cancel') : t('items.select')}
-          </button>
+      {/* Rendered outside .items-toolbar once detached, so it stays fixed
+          to the viewport rather than scrolling away with the toolbar. */}
+      {isAdmin && detached && (
+        <StickyTop align="right" className="select-toggle-wrap">
+          {selectToggleButton}
         </StickyTop>
       )}
     </>

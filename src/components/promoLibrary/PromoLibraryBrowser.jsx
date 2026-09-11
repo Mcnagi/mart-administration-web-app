@@ -4,10 +4,17 @@ import { useTranslation } from '../../context/LanguageContext';
 import { removePromos } from '../../services/promoService';
 import PromoLibraryBulkBar from './PromoLibraryBulkBar';
 import PromoLibraryGrid from './PromoLibraryGrid';
+import { StickyTop } from '../StickyBar';
+import { useScrolledPast } from '../../hooks/useScrolledPast';
 
 export default function PromoLibraryBrowser({ promos, onPromosChanged }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  // Select toggle sits inline next to "New Promo" while at the top of the
+  // page, then — past 5% of a viewport height of scroll — detaches into its
+  // own fixed StickyTop so it keeps working once the toolbar has scrolled
+  // away (same pattern as NavBar's menu button and the Items page).
+  const detached = useScrolledPast(0.05);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -46,6 +53,16 @@ export default function PromoLibraryBrowser({ promos, onPromosChanged }) {
     }
   }
 
+  const selectToggleButton = (
+    <button
+      type="button"
+      className={`select-toggle-btn${selectMode ? ' active' : ''}`}
+      onClick={() => setSelectMode((s) => !s)}
+    >
+      {selectMode ? t('promos.cancel') : t('promos.select')}
+    </button>
+  );
+
   return (
     <>
       <div className="promos-toolbar">
@@ -54,13 +71,17 @@ export default function PromoLibraryBrowser({ promos, onPromosChanged }) {
           <Link to="/promos/new" className="btn-primary btn-small">
             {t('promos.newPromo')}
           </Link>
-          {promos.length > 0 && (
-            <button type="button" className="select-toggle-btn" onClick={() => setSelectMode((s) => !s)}>
-              {selectMode ? t('promos.cancel') : t('promos.select')}
-            </button>
-          )}
+          {promos.length > 0 && !detached && selectToggleButton}
         </div>
       </div>
+
+      {/* Rendered outside .promos-toolbar once detached, so it stays fixed
+          to the viewport rather than scrolling away with the toolbar. */}
+      {promos.length > 0 && detached && (
+        <StickyTop align="right" className="select-toggle-wrap">
+          {selectToggleButton}
+        </StickyTop>
+      )}
 
       {selectMode && selectedIds.size > 0 && (
         <PromoLibraryBulkBar

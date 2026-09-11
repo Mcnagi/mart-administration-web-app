@@ -73,10 +73,8 @@ export default function NavBar() {
   return (
     <>
       <header className="top-bar">
-        <div className="top-bar-left">
-          {!detached && menuToggleButton}
-          <span className="navbar-brand">{APP_NAME}</span>
-        </div>
+        <div className="top-bar-left">{!detached && menuToggleButton}</div>
+        <span className="navbar-brand">{APP_NAME}</span>
         <div className="top-bar-actions">
           <LanguageSwitcher />
           <button className="icon-btn" onClick={() => logout()} aria-label={t('nav.logout')}>
