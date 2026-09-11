@@ -24,9 +24,13 @@ const ScanListBuilderPage = lazy(() => import('./pages/ScanListBuilderPage'));
 // Print after scrolling through the promo library) keeps that leftover
 // scrollY, which spuriously trips NavBar's useScrolledPast(0.05) and floats
 // its detached menu button over the new page's top content.
+//
+// /items is exempt: it restores its own remembered scroll position (see
+// itemsScrollCache.js) instead of always landing at the top.
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
+    if (pathname === '/items') return;
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;

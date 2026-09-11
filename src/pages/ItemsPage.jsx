@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSelection } from '../context/SelectionContext';
 import { useItems } from '../context/ItemsContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -8,6 +8,7 @@ import SelectionBar from '../components/items/SelectionBar';
 import FilterBar from '../components/items/FilterBar';
 import ExpirySection from '../components/items/ExpirySection';
 import { hasLoadedThisRuntime, markLoadedThisRuntime } from '../utils/itemsFilterCache';
+import { readCachedScroll, writeCachedScroll } from '../utils/itemsScrollCache';
 import { StickyBottom } from '../components/StickyBar';
 import { ArrowUpIcon } from '../components/icons';
 import { useScrolledPast } from '../hooks/useScrolledPast';
@@ -32,6 +33,29 @@ export default function ItemsPage() {
   // "Back to top" floats above the scan FAB once scrolled down more than
   // 10% of a viewport height.
   const showBackToTop = useScrolledPast(0.1);
+
+  // Remembers scroll position across visits (e.g. leaving to view/edit an
+  // item and coming back) — see itemsScrollCache.js. Restoring is deferred
+  // until real content has rendered: FilterBar reports its filtered/sorted
+  // sections one render behind the initial mount (via its own effect), so
+  // restoring on the first commit would jump to a page that's still just
+  // the empty/toolbar-only shell.
+  const restoredScrollRef = useRef(false);
+  useEffect(() => {
+    if (restoredScrollRef.current) return;
+    if (!items) return;
+    if (items.length > 0 && filterResult.sections.length === 0 && filterResult.filteredCount === 0) return;
+    restoredScrollRef.current = true;
+    window.scrollTo(0, readCachedScroll());
+  }, [items, filterResult]);
+
+  useEffect(() => {
+    function onScroll() {
+      writeCachedScroll(window.scrollY);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Selection state is shared with NavBar (which hides the bottom nav while
   // selecting) via context, which outlives this page — clear it if the page
