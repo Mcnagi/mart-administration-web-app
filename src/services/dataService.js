@@ -5,6 +5,7 @@
 // directly.
 import * as dataApi from '../api/dataApi';
 import * as pendingImportApi from '../api/pendingImportApi';
+import * as companyService from './companyService';
 import { t } from '../i18n/i18n';
 import { isBinarySpreadsheet, decodeTextFile, fixMojibake, headerToFieldKey } from '../utils/spreadsheetEncoding';
 import {
@@ -19,10 +20,7 @@ import {
 // Firestore's free-tier (Spark plan) daily write quota is 20,000 writes.
 // Uploading no more than this many rows per call keeps a large import from
 // burning through the whole day's quota in one shot, leaving headroom for
-// the writeLog call and any other admin writes that day. (The read side —
-// 1 getDoc per row via upsertRowsByBarcode's change check — is nowhere
-// close to the 50,000/day read quota at this size; see firestore.rules'
-// data/{docId} write rule for why writes don't also tax the read quota.)
+// the writeLog call and any other admin writes that day.
 const UPLOAD_CHUNK_SIZE = 19500;
 
 // The pending import (rows saved by uploadParsedRows past the chunk size,
@@ -99,22 +97,23 @@ function normalizeCellValue(value, cptable) {
   return value ?? '';
 }
 
-// Only these columns are pulled from the source file into the `data`
-// collection — anything else present in the sheet (extra columns some
-// exports include) is ignored. Order here is also the display order for
-// the import preview table.
-const ALLOWED_FIELD_KEYS = ['barcode', 'product', 'product2', 'class1', 'class2', 'class3', 'maker', 'salePrice'];
-
 // Reads an .xlsx/.xls workbook or a CSV/TSV export (first sheet) and maps
-// its header row to fields, deduped by `barcode` (re-importing the same
-// file will update existing rows rather than duplicate them once uploaded).
-// Rows missing a barcode, a product name, or a (non-zero) sale price are
-// skipped and counted, not errored, since a stray blank/incomplete row in
-// an exported sheet is the common case, not a mistake — but only when that
-// column is actually present in the file, since not every export includes
-// a product name or sale price column. Does not write anything — see
-// uploadParsedRows for that, so the caller can show a preview and let the
-// admin confirm before anything is written.
+// every column in its header row to a field (via headerToFieldKey), deduped
+// by `barcode` (re-importing the same file will update existing rows rather
+// than duplicate them once uploaded). Rows missing a barcode, a product
+// name, or a (non-zero) sale price are skipped and counted, not errored,
+// since a stray blank/incomplete row in an exported sheet is the common
+// case, not a mistake — but only when that column is actually present in
+// the file, since not every export includes a product name or sale price
+// column. Does not write anything — see uploadParsedRows for that, so the
+// caller can show a preview and let the admin confirm before anything is
+// written.
+//
+// An "IncoCode" column (values like "1-0001") is treated specially: the
+// part before the dash is the company code from the `companies` collection
+// (see companyService), and its name is added to each row as `companyName`
+// — a convenience lookup on top of the raw incoCode field, not a
+// replacement for it.
 export async function parseExcelFile(file) {
   const XLSX = await import('@e965/xlsx');
   // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
@@ -139,34 +138,41 @@ export async function parseExcelFile(file) {
   }
 
   const [headerRow, ...dataRows] = sheet;
-  const keys = headerRow.map(headerToFieldKey);
-  const barcodeIndex = keys.indexOf('barcode');
-  if (barcodeIndex === -1) {
+  // Every non-blank header becomes a column, in file order — so the preview
+  // table and the uploaded fields always include everything the file has.
+  // The IncoCode column is normalized to a canonical `incoCode` key
+  // regardless of how it's cased in the source file ("incocode", "INCOCODE",
+  // "Inco Code", …) — headerToFieldKey can only camelCase on separators, so
+  // a header with none (e.g. "incocode") would otherwise pass through as a
+  // different key than "IncoCode" does, splitting the same field in two
+  // depending on which spelling a given file happens to use.
+  const columns = headerRow
+    .map((header, index) => ({ key: headerToFieldKey(header), index, label: header }))
+    .filter(({ key }) => key)
+    .map((c) => (c.key.toLowerCase() === 'incocode' ? { ...c, key: 'incoCode' } : c));
+  if (!columns.some((c) => c.key === 'barcode')) {
     throw new Error(t('errors.importNoBarcodeColumn'));
   }
-
-  // Only the columns in ALLOWED_FIELD_KEYS that are actually present in this
-  // file, in that fixed order — so the preview table and the uploaded
-  // fields always match regardless of what other columns the file has.
-  const columns = ALLOWED_FIELD_KEYS.map((key) => ({ key, index: keys.indexOf(key) }))
-    .filter(({ index }) => index !== -1)
-    .map(({ key, index }) => ({ key, index, label: headerRow[index] }));
   const hasProductColumn = columns.some((c) => c.key === 'product');
   const hasSalePriceColumn = columns.some((c) => c.key === 'salePrice');
+  const incoCodeColumn = columns.find((c) => c.key === 'incoCode');
+
+  const companyNameByCode = incoCodeColumn ? await companyService.getCompanyNameMap() : null;
+
   const rowsByBarcode = new Map();
   let skipped = 0;
   dataRows.forEach((row) => {
-    const barcode = String(normalizeCellValue(row[barcodeIndex], cptable)).trim();
+    const fields = {};
+    columns.forEach(({ key, index }) => {
+      const value = normalizeCellValue(row[index], cptable);
+      fields[key] = key === 'salePrice' ? Number(value) || 0 : value;
+    });
+    const barcode = String(fields.barcode ?? '').trim();
     if (!barcode) {
       skipped += 1;
       return;
     }
-    const fields = { barcode };
-    columns.forEach(({ key, index }) => {
-      if (key === 'barcode') return;
-      const value = normalizeCellValue(row[index], cptable);
-      fields[key] = key === 'salePrice' ? Number(value) || 0 : value;
-    });
+    fields.barcode = barcode;
     if (hasProductColumn && !String(fields.product).trim()) {
       skipped += 1;
       return;
@@ -174,6 +180,10 @@ export async function parseExcelFile(file) {
     if (hasSalePriceColumn && !fields.salePrice) {
       skipped += 1;
       return;
+    }
+    if (companyNameByCode) {
+      const companyCode = Number(String(fields.incoCode ?? '').trim().split('-')[0]);
+      fields.companyName = Number.isInteger(companyCode) ? companyNameByCode.get(companyCode) ?? '' : '';
     }
     rowsByBarcode.set(barcode, fields);
   });
@@ -183,7 +193,11 @@ export async function parseExcelFile(file) {
     throw new Error(t('errors.importNoValidRows'));
   }
 
-  return { columns, rows, totalRows: dataRows.length, skipped };
+  // `companyName` is derived, not a real column in the file, so it's added
+  // to the preview table separately, after the file's own columns.
+  const previewColumns = incoCodeColumn ? [...columns, { key: 'companyName', label: t('admin.companyName') }] : columns;
+
+  return { columns: previewColumns, rows, totalRows: dataRows.length, skipped };
 }
 
 // Writes previously parsed rows (see parseExcelFile) to the `data`

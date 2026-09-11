@@ -19,6 +19,8 @@ export default function ImportDataForm() {
   const [importError, setImportError] = useState('');
   const [importSummary, setImportSummary] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [skip, setSkip] = useState(0);
+  const [limit, setLimit] = useState('');
   const importInputRef = useRef(null);
 
   useEffect(() => {
@@ -31,6 +33,8 @@ export default function ImportDataForm() {
     setImportError('');
     setImportSummary(null);
     setParsed(null);
+    setSkip(0);
+    setLimit('');
     // A freshly selected file replaces whatever was left over from a
     // previous, not-yet-finished import.
     await clearPendingRows();
@@ -47,14 +51,27 @@ export default function ImportDataForm() {
     }
   }
 
+  // Lets the admin upload a slice of the parsed rows rather than all of
+  // them at once — useful for very large files, to page through the upload
+  // in a few smaller batches instead of one long-running call.
+  function getRowsToUpload() {
+    if (!parsed) return [];
+    const start = Math.min(Math.max(0, skip), parsed.rows.length);
+    const end = limit === '' ? undefined : start + Math.max(0, Number(limit) || 0);
+    return parsed.rows.slice(start, end);
+  }
+
   async function handleUpload() {
-    if (!parsed) return;
+    const rows = getRowsToUpload();
+    if (rows.length === 0) return;
     setImportError('');
     setUploading(true);
     try {
-      const { imported } = await uploadParsedRows(parsed.rows);
+      const { imported } = await uploadParsedRows(rows);
       setImportSummary({ imported, skipped: parsed.skipped });
       setParsed(null);
+      setSkip(0);
+      setLimit('');
       if (importInputRef.current) importInputRef.current.value = '';
     } catch (err) {
       console.error('[data import] upload failed', err);
@@ -83,8 +100,12 @@ export default function ImportDataForm() {
   function handleCancel() {
     setParsed(null);
     setImportError('');
+    setSkip(0);
+    setLimit('');
     if (importInputRef.current) importInputRef.current.value = '';
   }
+
+  const rowsToUpload = getRowsToUpload();
 
   return (
     <div className="item-form">
@@ -136,8 +157,32 @@ export default function ImportDataForm() {
               </tbody>
             </table>
           </div>
+          <div className="import-range">
+            <label className="label-inline">
+              {t('admin.importSkip')}
+              <input
+                type="number"
+                min="0"
+                value={skip}
+                onChange={(e) => setSkip(Math.max(0, Number(e.target.value) || 0))}
+                disabled={uploading}
+              />
+            </label>
+            <label className="label-inline">
+              {t('admin.importLimit')}
+              <input
+                type="number"
+                min="0"
+                placeholder={t('admin.importLimitAll')}
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+          <p className="import-range-hint">{t('admin.importUploadRange', { count: rowsToUpload.length, total: parsed.rows.length })}</p>
           <div className="form-actions">
-            <button type="button" className="btn-primary" onClick={handleUpload} disabled={uploading}>
+            <button type="button" className="btn-primary" onClick={handleUpload} disabled={uploading || rowsToUpload.length === 0}>
               {uploading ? t('admin.importing') : t('admin.importButton')}
             </button>
             <button type="button" className="btn-outline" onClick={handleCancel} disabled={uploading}>

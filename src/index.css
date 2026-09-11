@@ -23,7 +23,7 @@
   --topbar-h: 56px;
 
   color-scheme: light dark;
-  font: 16px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 16px/1.2 system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -877,13 +877,34 @@ textarea:focus {
 }
 
 .import-preview h4 {
-  margin: 0;
+  /* Matches the h1-h3 rule's 8px bottom margin (h4 isn't covered by it) so
+     .import-hint's -8px top margin cancels out to a flush 0px gap instead
+     of overlapping the heading. */
+  margin: 0 0 8px;
 }
 
 .import-preview-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
+}
+
+.import-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.import-range .label-inline {
+  flex: 1;
+  min-width: 140px;
+}
+
+.import-range-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 4px 0 0;
 }
 
 /* Scan list builder's item table can grow well past a screenful while

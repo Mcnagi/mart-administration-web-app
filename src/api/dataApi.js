@@ -1,11 +1,40 @@
 // Raw Firestore calls for the `data` collection: rows from admin Excel
 // imports, kept separate from the curated, user-facing `items` inventory in
 // api/itemsApi.js — see services/dataService.js for the import logic.
-import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseClient';
 import { writeLog } from './logsApi';
 
 const dataCol = collection(db, 'data');
+
+// Firestore batch writes are capped at 500 operations; stay under that for
+// headroom (matches the pattern used for the `companies` collection import,
+// see companiesApi.upsertCompaniesByCode).
+const BATCH_SIZE = 450;
+
+// Bounds each batch commit so a stuck one (e.g. a flaky connection) fails
+// fast instead of stalling the whole upload indefinitely — its rows then
+// fall back to the pending-import retry path (see
+// dataService.uploadParsedRows) like any other batch failure.
+const BATCH_TIMEOUT_MS = 30000;
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error(`Batch commit timed out after ${ms}ms`), { code: 'timeout' }));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 // Looks up a single imported row by its barcode (the doc ID in this
 // collection — see upsertRowsByBarcode below), for the item form's barcode
@@ -27,49 +56,39 @@ export async function savePhotoForBarcode(barcode, photoBase64) {
   writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
 }
 
-function fieldsUnchanged(existing, fields) {
-  return existing != null && Object.keys(fields).every((key) => existing[key] === fields[key]);
-}
-
 // Each row is keyed by `barcode`, used as the doc ID instead of an auto ID
 // so re-importing the same product updates it rather than creating a
-// duplicate. Re-importing the same file repeatedly is the common case (a
-// daily export re-uploaded to catch new products), so each row is read
-// first and the write is skipped entirely when nothing actually changed —
-// trading a read (Firestore's free-tier quota: 50,000/day) for a write
-// (20,000/day, the one this import is chunked to protect — see
-// UPLOAD_CHUNK_SIZE in services/dataService.js) on every row that's already
-// up to date.
+// duplicate. Since the doc ID is already known for every row, rows are
+// written directly in batches (writeBatch) rather than read-then-compared
+// first — unlike the `companies` collection, no lookup is needed to find
+// which doc a row belongs to.
 //
-// If a row fails partway (e.g. the write quota is hit), the error is
-// annotated with `uploadedCount`, the number of rows already handled
-// (written or correctly skipped as unchanged), so the caller knows which
-// rows still need to be saved for a retry.
+// If a batch fails partway (e.g. the write quota is hit, or a commit times
+// out — see BATCH_TIMEOUT_MS), the error is annotated with `uploadedCount`,
+// the number of rows already committed in prior batches, so the caller
+// knows which rows still need to be saved for a retry.
 export async function upsertRowsByBarcode(rows) {
-  let processed = 0;
-  let written = 0;
   const total = rows.length;
-  for (const row of rows) {
-    const { barcode, ...fields } = row;
-    const ref = doc(dataCol, barcode);
+  let processed = 0;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const chunk = rows.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    chunk.forEach((row) => {
+      const { barcode, ...fields } = row;
+      batch.set(doc(dataCol, barcode), { ...fields, barcode, updatedAt: serverTimestamp() }, { merge: true });
+    });
     try {
-      const snap = await getDoc(ref);
-      if (!fieldsUnchanged(snap.exists() ? snap.data() : null, fields)) {
-        await setDoc(ref, { ...fields, barcode, updatedAt: serverTimestamp() }, { merge: true });
-        written += 1;
-      }
-      processed += 1;
-      if (processed % 500 === 0 || processed === total) {
-        console.log(`[data import] processed ${processed}/${total} rows (${written} written, ${processed - written} unchanged)`);
-      }
+      await withTimeout(batch.commit(), BATCH_TIMEOUT_MS);
     } catch (err) {
       err.uploadedCount = processed;
       console.error(
-        `[data import] row ${barcode} failed after ${processed}/${total} rows — ${err.code ?? 'unknown'}: ${err.message}`,
+        `[data import] batch failed after ${processed}/${total} rows — ${err.code ?? 'unknown'}: ${err.message}`,
         err,
       );
       throw err;
     }
+    processed += chunk.length;
+    console.log(`[data import] processed ${processed}/${total} rows`);
   }
-  writeLog('write', { action: 'bulkImport', collectionName: 'data', count: written, unchanged: processed - written });
+  writeLog('write', { action: 'bulkImport', collectionName: 'data', count: processed });
 }

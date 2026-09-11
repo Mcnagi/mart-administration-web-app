@@ -4,9 +4,24 @@
 import * as companiesApi from '../api/companiesApi';
 import { t } from '../i18n/i18n';
 import { isBinarySpreadsheet, decodeTextFile, fixMojibake, headerToFieldKey } from '../utils/spreadsheetEncoding';
+import { saveCompanyNameMap, loadCompanyNameMap } from '../utils/companyNameCache';
 
-export function fetchCompanies() {
-  return companiesApi.listCompanies();
+export async function fetchCompanies() {
+  const companies = await companiesApi.listCompanies();
+  saveCompanyNameMap(companies);
+  return companies;
+}
+
+// Code -> name lookup for the data import's IncoCode column (see
+// dataService.parseExcelFile). Reads the local cache first (see
+// utils/companyNameCache.js), which is refreshed on every fetchCompanies()
+// call, so importing data doesn't need its own Firestore read just to
+// resolve names. Falls back to a live fetch only when nothing's cached yet.
+export async function getCompanyNameMap() {
+  const cached = loadCompanyNameMap();
+  if (cached) return cached;
+  const companies = await fetchCompanies();
+  return new Map(companies.map((c) => [c.code, c.name]));
 }
 
 // `id` present -> update an existing entry, absent -> create a new one.
