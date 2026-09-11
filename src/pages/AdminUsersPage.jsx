@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CreateUserForm from '../components/admin/CreateUserForm';
 import ImportDataForm from '../components/admin/ImportDataForm';
 import ScanListTagsForm from '../components/admin/ScanListTagsForm';
+import CompaniesForm from '../components/admin/CompaniesForm';
 import UserList from '../components/admin/UserList';
 import { scheduleIdle } from '../utils/idleSchedule';
 
@@ -51,6 +52,8 @@ export default function AdminUsersPage() {
       <ImportDataForm />
 
       <ScanListTagsForm />
+
+      <CompaniesForm />
 
       <UserList users={users} currentUid={currentProfile.uid} onChanged={refresh} />
     </div>

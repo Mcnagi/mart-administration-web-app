@@ -91,6 +91,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Code -> company name map, managed by admins on /admin (see
+    // components/admin/CompaniesForm.jsx) — any active user can read it,
+    // but only admins can add/edit/remove an entry. Auto-ID doc, with `code`
+    // as a plain field (not the doc ID) since codes can be renumbered.
+    match /companies/{companyId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
     // Imported product rows, keyed by barcode. Also holds a `photos` field
     // per doc caching candidate product images found via search (see
     // services/photoSearchService.js), and a `photo` field caching whichever
