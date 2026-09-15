@@ -8,6 +8,7 @@ import * as pendingImportApi from '../api/pendingImportApi';
 import * as companyService from './companyService';
 import { t } from '../i18n/i18n';
 import { isBinarySpreadsheet, decodeTextFile, fixMojibake, headerToFieldKey } from '../utils/spreadsheetEncoding';
+import { companyNameFromIncoCode } from '../utils/incoCode';
 import {
   encodePendingRows,
   decodePendingRows,
@@ -110,10 +111,10 @@ function normalizeCellValue(value, cptable) {
 // written.
 //
 // An "IncoCode" column (values like "1-0001") is treated specially: the
-// part before the dash is the company code from the `companies` collection
-// (see companyService), and its name is added to each row as `companyName`
-// — a convenience lookup on top of the raw incoCode field, not a
-// replacement for it.
+// part after the dash is the company code from the `companies` collection
+// (see companyService and utils/incoCode.js), and its name is added to each
+// row as `companyName` — a convenience lookup on top of the raw incoCode
+// field, not a replacement for it.
 export async function parseExcelFile(file) {
   const XLSX = await import('@e965/xlsx');
   // Legacy .xls (BIFF) files store non-Unicode strings in a codepage-specific
@@ -182,8 +183,7 @@ export async function parseExcelFile(file) {
       return;
     }
     if (companyNameByCode) {
-      const companyCode = Number(String(fields.incoCode ?? '').trim().split('-')[0]);
-      fields.companyName = Number.isInteger(companyCode) ? companyNameByCode.get(companyCode) ?? '' : '';
+      fields.companyName = companyNameFromIncoCode(fields.incoCode, companyNameByCode);
     }
     rowsByBarcode.set(barcode, fields);
   });
