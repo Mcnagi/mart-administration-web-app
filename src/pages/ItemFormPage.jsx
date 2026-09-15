@@ -152,13 +152,15 @@ export default function ItemFormPage() {
     setPhotoFromDataCollection(false);
     try {
       const result = await searchProductByBarcode(trimmed);
-      if (!result || result.status === 'notFound') {
+      if (!result) {
         setSearchStatus('notFound');
         return;
       }
-      setSearchResult(result.searchResult);
-      setCategory(result.category || '');
       setSearchStatus(result.status);
+      if (result.status === 'found') {
+        setSearchResult(result.searchResult);
+        setCategory(result.category || '');
+      }
       if (result.cachedPhotos) {
         setPhotoCandidates(result.cachedPhotos);
       }
@@ -349,7 +351,6 @@ export default function ItemFormPage() {
         {searchStatus && (
           <p className="search-status">
             {searchStatus === 'found' && t('itemForm.searchFound')}
-            {searchStatus === 'foundExternal' && t('itemForm.searchFoundExternal')}
             {searchStatus === 'notFound' && t('itemForm.searchNotFound')}
             {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
           </p>

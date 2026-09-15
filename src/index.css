@@ -1534,6 +1534,10 @@ textarea:focus {
   gap: 8px;
 }
 
+.user-row.selected {
+  border-color: var(--accent);
+}
+
 .user-row-info {
   display: flex;
   align-items: center;

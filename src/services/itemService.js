@@ -3,7 +3,7 @@
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
 import { getDataByBarcode, savePhotoForBarcode } from '../api/dataApi';
-import { getExternalProductInfo, getExternalProductImage } from '../api/barcodeLookupApi';
+import { getExternalProductImageUrl, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { t } from '../i18n/i18n';
 
@@ -105,12 +105,13 @@ export async function fetchItemById(itemId) {
 }
 
 // Drives the item form's barcode search button: checks our own imported
-// `data` collection first, falling back to Open Food Facts, and works out
-// what (if anything) needs to happen next for the product photo — a cached
-// candidate list (from a since-removed photo-search feature, see
-// api/dataApi.js) or an auto-fill from the external source's own photo.
-// The caller (ItemFormPage) owns all UI/loading state; this just makes the
-// found/not-found/source decision and hands back what to show.
+// `data` collection for a product match, and works out what (if anything)
+// needs to happen next for the product photo — a cached candidate list
+// (from a since-removed photo-search feature, see api/dataApi.js) or, when
+// nothing is on file locally, a best-effort photo suggestion from Open Food
+// Facts (name/brand/category are not looked up externally — only the
+// photo). The caller (ItemFormPage) owns all UI/loading state; this just
+// makes the found/not-found decision and hands back what to show.
 export async function searchProductByBarcode(barcode) {
   const trimmed = (barcode ?? '').trim();
   if (!trimmed) return null;
@@ -119,9 +120,6 @@ export async function searchProductByBarcode(barcode) {
   // and no `product` name (left behind by the old photo-search feature), so
   // a real imported-row match requires `product` or `salePrice` — either
   // means this doc actually carries imported data, not just doc existence.
-  // Without the `salePrice` half of this check, a row imported with a price
-  // but no product name would fall through to the external lookup below,
-  // silently losing its salePrice (the external result never has one).
   const row = await getDataByBarcode(trimmed);
   if (row?.product || row?.salePrice) {
     return {
@@ -134,29 +132,20 @@ export async function searchProductByBarcode(barcode) {
     };
   }
 
-  // Not in our own Firestore data — fall back to an external barcode
-  // database. Failures here (the service is down, network error) are
-  // treated the same as "not found" rather than surfaced as a search error,
-  // since our own lookup already succeeded.
-  const info = await getExternalProductInfo(trimmed).catch(() => null);
-  if (!info) {
-    return { status: 'notFound' };
-  }
-
-  const result = {
-    status: 'foundExternal',
-    searchResult: { product: info.name, quantity: info.quantity, brand: info.brand },
-    category: info.category,
+  // Not in our own Firestore data — no name/category to offer, but still
+  // worth a best-effort photo suggestion from Open Food Facts. Failures here
+  // (the service is down, network error, no photo on file) are all treated
+  // the same as "no photo" rather than surfaced as a search error, since our
+  // own lookup already succeeded (as a miss).
+  const externalImageUrl = await getExternalProductImageUrl(trimmed).catch(() => null);
+  return {
+    status: 'notFound',
     cachedPhotos: row?.photos?.length ? row.photos : null,
     canonicalPhoto: row?.photo || null,
-    externalImageUrl: null,
-  };
-  if (info.imageUrl) {
     // Caller only auto-fills this if the user hasn't already picked a photo —
     // never clobber a manually chosen or existing (edit-mode) photo.
-    result.externalImageUrl = info.imageUrl;
-  }
-  return result;
+    externalImageUrl,
+  };
 }
 
 // Fetches the photo Open Food Facts has on file for a search result, ready
@@ -177,23 +166,16 @@ export function fetchDataRowForBarcode(barcode) {
 }
 
 // A barcode item doesn't store its own name (see saveItem below), so the
-// items list resolves one for display: the imported `data` collection first
-// (same source ItemFormPage's search uses), falling back to the external
-// Open Food Facts lookup. Both are best-effort — this backs a background
-// display fill-in, not a user-initiated search, so failures just mean no
-// name rather than a surfaced error.
+// items list resolves one for display from the imported `data` collection
+// (same source ItemFormPage's search uses) — best-effort, since this backs a
+// background display fill-in, not a user-initiated search, so a failure just
+// means no name rather than a surfaced error.
 export async function resolveProductName(barcode) {
   try {
     const row = await getDataByBarcode(barcode);
     if (row?.product) return row.product;
   } catch {
-    // fall through to the external lookup
-  }
-  try {
-    const info = await getExternalProductInfo(barcode);
-    if (info?.name) return info.name;
-  } catch {
-    // no external match either
+    // no local match
   }
   return null;
 }

@@ -134,6 +134,29 @@ export function sortScanListItems(items) {
   );
 }
 
+// Combines several scan lists' items into one array, summing quantities for
+// any barcode that appears in more than one source list — the point of
+// merging is to consolidate repeat items (e.g. two partial scans of the same
+// order), not to list them twice. A merged row's other fields (name,
+// category, companyName, ...) come from whichever source list it was first
+// encountered in; later sources only contribute their quantity.
+export function mergeScanListItems(itemLists) {
+  const merged = [];
+  const indexByBarcode = new Map();
+  for (const items of itemLists) {
+    for (const item of items) {
+      const existingIndex = indexByBarcode.get(item.barcode);
+      if (existingIndex === undefined) {
+        indexByBarcode.set(item.barcode, merged.length);
+        merged.push({ ...item });
+      } else {
+        merged[existingIndex] = { ...merged[existingIndex], quantity: merged[existingIndex].quantity + item.quantity };
+      }
+    }
+  }
+  return merged;
+}
+
 export function fetchScanLists() {
   return scanListsApi.listScanLists();
 }
@@ -165,6 +188,21 @@ export async function saveScanList({ id, name, tagId, tagLabel, items }, ownerId
 
 export function removeScanList(scanListId) {
   return scanListsApi.deleteScanList(scanListId);
+}
+
+// Saves a new list that starts as a copy of `scanList` — same tag and
+// items, name suffixed " (copy)" — for branching off an existing list (e.g.
+// a similar restock run) without re-scanning everything from scratch.
+export function duplicateScanList(scanList, ownerId) {
+  return saveScanList(
+    {
+      name: `${scanList.name} (copy)`,
+      tagId: scanList.tagId,
+      tagLabel: scanList.tagLabel,
+      items: scanList.items || [],
+    },
+    ownerId
+  );
 }
 
 export async function createScanListTag(label) {

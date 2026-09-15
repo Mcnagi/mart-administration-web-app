@@ -2,15 +2,23 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
 import { exportScanListToExcel } from '../../services/scanListService';
 
-export default function ScanListRow({ scanList, onDelete }) {
+export default function ScanListRow({ scanList, selecting, selected, onToggleSelect, onDuplicate, onDelete }) {
   const navigate = useNavigate();
   const { t, language } = useTranslation();
   const itemCount = scanList.items?.length ?? 0;
   const savedAt = scanList.createdAt?.toDate?.() ?? null;
 
   return (
-    <li className="user-row">
+    <li className={`user-row${selected ? ' selected' : ''}`}>
       <div className="user-row-info">
+        {selecting && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(scanList.id)}
+            aria-label={t('scanLists.selectRow', { name: scanList.name })}
+          />
+        )}
         <span className="user-email">{scanList.name}</span>
         {scanList.tagLabel && <span className="badge badge-none">{scanList.tagLabel}</span>}
         <span className="badge badge-none">{t('scanLists.itemCount', { count: itemCount })}</span>
@@ -22,6 +30,9 @@ export default function ScanListRow({ scanList, onDelete }) {
         </button>
         <button type="button" className="btn-link" onClick={() => exportScanListToExcel(scanList)}>
           {t('scanLists.export')}
+        </button>
+        <button type="button" className="btn-link" onClick={() => onDuplicate(scanList)}>
+          {t('scanLists.duplicate')}
         </button>
         <button type="button" className="btn-link btn-link-danger" onClick={() => onDelete(scanList)}>
           {t('scanLists.delete')}
