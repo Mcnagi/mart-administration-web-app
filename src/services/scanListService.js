@@ -39,6 +39,7 @@ function scannedItemInfoFromRow(row) {
     category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
     maker: row.maker || '',
     salePrice: row.salePrice || '',
+    companyName: row.companyName || '',
   };
 }
 
@@ -54,7 +55,16 @@ export async function resolveScannedItemInfo(barcode) {
   const info = scannedItemInfoFromRow(row);
   if (info) return info;
   const zeroPrefixedRow = await getDataByBarcode(`0${barcode}`).catch(() => null);
-  return scannedItemInfoFromRow(zeroPrefixedRow) || { name: '', nameKo: '', category: '', maker: '', salePrice: '' };
+  return (
+    scannedItemInfoFromRow(zeroPrefixedRow) || {
+      name: '',
+      nameKo: '',
+      category: '',
+      maker: '',
+      salePrice: '',
+      companyName: '',
+    }
+  );
 }
 
 // Pure array transform, no Firestore call: increments quantity if `barcode`
@@ -76,6 +86,7 @@ export function addScannedBarcode(items, barcode, info) {
         category: info.category || '',
         maker: info.maker || '',
         salePrice: info.salePrice || '',
+        companyName: info.companyName || '',
         quantity: 1,
       },
     ];
@@ -99,6 +110,28 @@ export function updateItemQuantity(items, index, quantity) {
 
 export function removeItemAt(items, index) {
   return items.filter((_, i) => i !== index);
+}
+
+// Distinct, sorted company names actually present on the list — drives the
+// company filter's chip options. Items without a company (older lists saved
+// before companyName existed, or a barcode whose imported row had no inco
+// code) are excluded from the options rather than shown as a blank chip.
+export function uniqueScanListCompanies(items) {
+  return [...new Set(items.map((item) => item.companyName).filter(Boolean))].sort();
+}
+
+// Default display/export order: company, then category, then name. Items
+// with no company/category sort first within their group (empty string
+// collates before any real value). Returns a new array — never mutates
+// `items` — so callers can freely diff it against the unsorted list (e.g. to
+// map a displayed row back to its real index; see ScanListBuilderPage).
+export function sortScanListItems(items) {
+  return [...items].sort(
+    (a, b) =>
+      (a.companyName || '').localeCompare(b.companyName || '') ||
+      (a.category || '').localeCompare(b.category || '') ||
+      (a.name || '').localeCompare(b.name || '')
+  );
 }
 
 export function fetchScanLists() {

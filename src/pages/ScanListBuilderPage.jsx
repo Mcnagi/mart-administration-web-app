@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -12,13 +12,15 @@ import {
   formatScanListBarcode,
   updateItemQuantity,
   removeItemAt,
+  uniqueScanListCompanies,
+  sortScanListItems,
   exportScanListToExcel,
   loadScanListDraft,
   saveScanListDraft,
   clearScanListDraft,
 } from '../services/scanListService';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { BackIcon, ScanListIcon } from '../components/icons';
+import { BackIcon, ScanListIcon, FilterIcon } from '../components/icons';
 import { scheduleIdle } from '../utils/idleSchedule';
 
 // Lazy-loaded for the same reason as NavBar/ItemFormPage's scanner: pulls in
@@ -49,6 +51,27 @@ export default function ScanListBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedCompanies, setSelectedCompanies] = useState(() => new Set());
+
+  const companyOptions = useMemo(() => uniqueScanListCompanies(items), [items]);
+
+  // Always sorted company -> category -> name, whether or not a company
+  // filter is active, so the table and any export reflect the same order.
+  const visibleItems = useMemo(() => {
+    const filtered =
+      selectedCompanies.size === 0 ? items : items.filter((item) => selectedCompanies.has(item.companyName || ''));
+    return sortScanListItems(filtered);
+  }, [items, selectedCompanies]);
+
+  function toggleCompanyFilter(company) {
+    setSelectedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(company)) next.delete(company);
+      else next.add(company);
+      return next;
+    });
+  }
 
   useEffect(() => scheduleIdle(() => { import('../components/ScanListScanner'); }), []);
 
@@ -136,11 +159,11 @@ export default function ScanListBuilderPage() {
     }
   }
 
-  async function handleExport() {
+  async function handleExport(exportItems) {
     setError('');
     setExporting(true);
     try {
-      await exportScanListToExcel({ name: name.trim() || defaultScanListName(), items });
+      await exportScanListToExcel({ name: name.trim() || defaultScanListName(), items: exportItems });
     } catch (err) {
       setError(err.message || t('scanLists.errorExport'));
     } finally {
@@ -199,41 +222,100 @@ export default function ScanListBuilderPage() {
         {noItems ? (
           <p className="import-hint">{t('scanLists.emptyBuilder')}</p>
         ) : (
-          <div className="import-preview-table-wrap scan-list-items-wrap">
-            <table className="import-preview-table">
-              <thead>
-                <tr>
-                  <th>{t('scanLists.nameCol')}</th>
-                  <th>{t('scanLists.nameKoCol')}</th>
-                  <th>{t('scanLists.barcodeCol')}</th>
-                  <th>{t('scanLists.quantityCol')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, i) => (
-                  <tr key={item.barcode}>
-                    <td>{item.name}</td>
-                    <td>{item.nameKo}</td>
-                    <td title={item.barcode}>{formatScanListBarcode(item.barcode)}</td>
-                    <td>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => setItems(updateItemQuantity(items, i, e.target.value))}
-                      />
-                    </td>
-                    <td>
-                      <button type="button" className="btn-link btn-link-danger" onClick={() => setItems(removeItemAt(items, i))}>
-                        {t('scanLists.removeRow')}
+          <>
+            {companyOptions.length > 0 && (
+              <div className="filter-bar">
+                <button
+                  type="button"
+                  className={`filter-toggle-btn${selectedCompanies.size > 0 ? ' active' : ''}`}
+                  onClick={() => setFilterOpen((o) => !o)}
+                  aria-expanded={filterOpen}
+                >
+                  <FilterIcon />
+                  {t('scanLists.filterByCompany')}
+                  {selectedCompanies.size > 0 && <span className="filter-count">{selectedCompanies.size}</span>}
+                </button>
+
+                {filterOpen && (
+                  <div className="filter-panel">
+                    <div className="filter-group">
+                      <div className="filter-group-label">{t('scanLists.filterByCompany')}</div>
+                      <div className="filter-chip-row">
+                        {companyOptions.map((company) => (
+                          <button
+                            key={company}
+                            type="button"
+                            className={`filter-chip${selectedCompanies.has(company) ? ' selected' : ''}`}
+                            aria-pressed={selectedCompanies.has(company)}
+                            onClick={() => toggleCompanyFilter(company)}
+                          >
+                            {company}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedCompanies.size > 0 && (
+                      <button
+                        type="button"
+                        className="btn-link filter-clear-btn"
+                        onClick={() => setSelectedCompanies(new Set())}
+                      >
+                        {t('scanLists.clearFilters')}
                       </button>
-                    </td>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="import-preview-table-wrap scan-list-items-wrap">
+              <table className="import-preview-table">
+                <thead>
+                  <tr>
+                    <th>{t('scanLists.nameCol')}</th>
+                    <th>{t('scanLists.nameKoCol')}</th>
+                    <th>{t('scanLists.categoryCol')}</th>
+                    <th>{t('scanLists.companyCol')}</th>
+                    <th>{t('scanLists.barcodeCol')}</th>
+                    <th>{t('scanLists.quantityCol')}</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visibleItems.map((item) => {
+                    const realIndex = items.indexOf(item);
+                    return (
+                      <tr key={item.barcode}>
+                        <td>{item.name}</td>
+                        <td>{item.nameKo}</td>
+                        <td>{item.category}</td>
+                        <td>{item.companyName}</td>
+                        <td title={item.barcode}>{formatScanListBarcode(item.barcode)}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => setItems(updateItemQuantity(items, realIndex, e.target.value))}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-link btn-link-danger"
+                            onClick={() => setItems(removeItemAt(items, realIndex))}
+                          >
+                            {t('scanLists.removeRow')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {error && <div className="form-error">{error}</div>}
@@ -242,9 +324,19 @@ export default function ScanListBuilderPage() {
           <button type="button" className="btn-primary" onClick={handleSave} disabled={noItems || saving}>
             {saving ? t('scanLists.saving') : t('scanLists.save')}
           </button>
-          <button type="button" className="btn-outline" onClick={handleExport} disabled={noItems || exporting}>
+          <button type="button" className="btn-outline" onClick={() => handleExport(visibleItems)} disabled={noItems || exporting}>
             {exporting ? t('scanLists.exporting') : t('scanLists.export')}
           </button>
+          {selectedCompanies.size > 0 && (
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => handleExport(sortScanListItems(items))}
+              disabled={noItems || exporting}
+            >
+              {exporting ? t('scanLists.exporting') : t('scanLists.exportAll')}
+            </button>
+          )}
         </div>
       </div>
 
