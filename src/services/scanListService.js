@@ -128,18 +128,11 @@ export function uniqueScanListCompanies(items) {
   return [...new Set(items.map((item) => item.companyName).filter(Boolean))].sort();
 }
 
-// Default display/export order: company, then category, then name. Items
-// with no company/category sort first within their group (empty string
-// collates before any real value). Returns a new array — never mutates
+// Default display/export order: name. Returns a new array — never mutates
 // `items` — so callers can freely diff it against the unsorted list (e.g. to
 // map a displayed row back to its real index; see ScanListBuilderPage).
 export function sortScanListItems(items) {
-  return [...items].sort(
-    (a, b) =>
-      (a.companyName || '').localeCompare(b.companyName || '') ||
-      (a.category || '').localeCompare(b.category || '') ||
-      (a.name || '').localeCompare(b.name || '')
-  );
+  return [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
 // Combines several scan lists' items into one array, summing quantities for
