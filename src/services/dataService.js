@@ -200,6 +200,37 @@ export async function parseExcelFile(file) {
   return { columns: previewColumns, rows, totalRows: dataRows.length, skipped };
 }
 
+// Backs the import form's "upload new only" and "update changed" buttons:
+// reads every row already in the `data` collection, keyed by barcode, so
+// the caller can filter parsed rows against what's actually stored before
+// uploading. A full-collection read, so it only runs when the admin picks
+// one of those buttons — not on every import.
+export async function fetchExistingRows() {
+  const rows = await dataApi.listAll();
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+// "Upload new only": keeps rows whose barcode isn't in the collection at
+// all. Existing rows are left untouched even if the file's data for them
+// has since changed — see filterChangedRows for that case.
+export function filterNewRows(rows, existingByBarcode) {
+  return rows.filter((row) => !existingByBarcode.has(row.barcode));
+}
+
+// "Update changed": keeps new rows plus existing rows whose fields (as
+// parsed from the file) actually differ from what's currently stored —
+// skips rows that would just re-write the same values, since
+// upsertRowsByBarcode otherwise writes every row it's given unconditionally.
+// Only the file's own columns are compared; extra fields the stored doc may
+// carry (e.g. `photo`, `updatedAt`) are irrelevant here.
+export function filterChangedRows(rows, existingByBarcode) {
+  return rows.filter((row) => {
+    const existing = existingByBarcode.get(row.barcode);
+    if (!existing) return true;
+    return Object.keys(row).some((key) => String(row[key] ?? '') !== String(existing[key] ?? ''));
+  });
+}
+
 // Writes previously parsed rows (see parseExcelFile) to the `data`
 // collection, keyed by barcode. Only the first UPLOAD_CHUNK_SIZE rows are
 // uploaded — anything beyond that is saved as a pending import (see

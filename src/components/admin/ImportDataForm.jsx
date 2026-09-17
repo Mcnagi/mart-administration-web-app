@@ -6,6 +6,9 @@ import {
   continuePendingImport,
   getPendingRowCount,
   clearPendingRows,
+  fetchExistingRows,
+  filterNewRows,
+  filterChangedRows,
 } from '../../services/dataService';
 import LoadingSpinner from '../LoadingSpinner';
 
@@ -15,13 +18,20 @@ export default function ImportDataForm() {
   const { t } = useTranslation();
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  // Which upload button is currently running — also doubles as the "busy"
+  // flag (uploading = action !== null) so only one can run at a time.
+  const [action, setAction] = useState(null);
   const [importError, setImportError] = useState('');
   const [importSummary, setImportSummary] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [skip, setSkip] = useState(0);
   const [limit, setLimit] = useState('');
+  // Cached existing `data` rows (barcode -> fields), read once per parsed
+  // file the first time either the "new only" or "update changed" button is
+  // used, and shared between them — see loadExistingRows.
+  const [existingRows, setExistingRows] = useState(null);
   const importInputRef = useRef(null);
+  const uploading = action !== null;
 
   useEffect(() => {
     getPendingRowCount().then(setPendingCount);
@@ -35,6 +45,7 @@ export default function ImportDataForm() {
     setParsed(null);
     setSkip(0);
     setLimit('');
+    setExistingRows(null);
     // A freshly selected file replaces whatever was left over from a
     // previous, not-yet-finished import.
     await clearPendingRows();
@@ -53,38 +64,78 @@ export default function ImportDataForm() {
 
   // Lets the admin upload a slice of the parsed rows rather than all of
   // them at once — useful for very large files, to page through the upload
-  // in a few smaller batches instead of one long-running call.
-  function getRowsToUpload() {
+  // in a few smaller batches instead of one long-running call. This range
+  // is the starting point for all three upload buttons below; "new only"
+  // and "update changed" then filter it further once the existing rows are
+  // read (see runUpload).
+  function rowsInRange() {
     if (!parsed) return [];
     const start = Math.min(Math.max(0, skip), parsed.rows.length);
     const end = limit === '' ? undefined : start + Math.max(0, Number(limit) || 0);
     return parsed.rows.slice(start, end);
   }
 
-  async function handleUpload() {
-    const rows = getRowsToUpload();
-    if (rows.length === 0) return;
+  // Reads every row already in the `data` collection, once per parsed file,
+  // so "new only" and "update changed" don't each trigger their own
+  // full-collection read if the admin tries one then the other.
+  async function loadExistingRows() {
+    if (existingRows) return existingRows;
+    const rows = await fetchExistingRows();
+    setExistingRows(rows);
+    return rows;
+  }
+
+  function resetAfterUpload() {
+    setParsed(null);
+    setSkip(0);
+    setLimit('');
+    setExistingRows(null);
+    if (importInputRef.current) importInputRef.current.value = '';
+  }
+
+  // Shared by all three buttons below: applies `filterRows` to the
+  // skip/limit range, uploads whatever's left (skipping the write entirely
+  // when nothing matches), and reports the result the same way regardless
+  // of which mode triggered it.
+  async function runUpload(actionName, filterRows) {
     setImportError('');
-    setUploading(true);
+    setAction(actionName);
     try {
-      const { imported } = await uploadParsedRows(rows);
+      const rows = await filterRows(rowsInRange());
+      const imported = rows.length === 0 ? 0 : (await uploadParsedRows(rows)).imported;
       setImportSummary({ imported, skipped: parsed.skipped });
-      setParsed(null);
-      setSkip(0);
-      setLimit('');
-      if (importInputRef.current) importInputRef.current.value = '';
+      resetAfterUpload();
     } catch (err) {
-      console.error('[data import] upload failed', err);
+      console.error(`[data import] ${actionName} upload failed`, err);
       setImportError(err.message || t('admin.errorImport'));
     } finally {
-      setUploading(false);
+      setAction(null);
       setPendingCount(await getPendingRowCount());
     }
   }
 
+  // Uploads only barcodes that don't exist in `data` yet — existing rows
+  // are left untouched even if the file's values for them have changed.
+  function handleUploadNewOnly() {
+    return runUpload('newOnly', async (rows) => filterNewRows(rows, await loadExistingRows()));
+  }
+
+  // Uploads new rows plus existing rows whose fields actually differ from
+  // what's stored — rows that would just re-write the same values are
+  // skipped, so a re-run of an already-imported file is a cheap no-op.
+  function handleUploadChanged() {
+    return runUpload('update', async (rows) => filterChangedRows(rows, await loadExistingRows()));
+  }
+
+  // Uploads every row in range unconditionally, same as a plain re-import —
+  // no existing-data read, no filtering.
+  function handleUploadOverwrite() {
+    return runUpload('overwrite', async (rows) => rows);
+  }
+
   async function handleContinueUpload() {
     setImportError('');
-    setUploading(true);
+    setAction('continue');
     try {
       const { imported } = await continuePendingImport();
       setImportSummary({ imported, skipped: 0 });
@@ -92,7 +143,7 @@ export default function ImportDataForm() {
       console.error('[data import] continue upload failed', err);
       setImportError(err.message || t('admin.errorImport'));
     } finally {
-      setUploading(false);
+      setAction(null);
       setPendingCount(await getPendingRowCount());
     }
   }
@@ -102,10 +153,11 @@ export default function ImportDataForm() {
     setImportError('');
     setSkip(0);
     setLimit('');
+    setExistingRows(null);
     if (importInputRef.current) importInputRef.current.value = '';
   }
 
-  const rowsToUpload = getRowsToUpload();
+  const rangeCount = rowsInRange().length;
 
   return (
     <div className="item-form">
@@ -126,7 +178,7 @@ export default function ImportDataForm() {
           {t('admin.importPending', { remaining: pendingCount })}
           <div className="form-actions">
             <button type="button" className="btn-primary" onClick={handleContinueUpload} disabled={uploading}>
-              {uploading ? t('admin.importing') : t('admin.continueImportButton')}
+              {action === 'continue' ? t('admin.importing') : t('admin.continueImportButton')}
             </button>
           </div>
         </div>
@@ -180,10 +232,17 @@ export default function ImportDataForm() {
               />
             </label>
           </div>
-          <p className="import-range-hint">{t('admin.importUploadRange', { count: rowsToUpload.length, total: parsed.rows.length })}</p>
+          <p className="import-range-hint">{t('admin.importUploadRange', { count: rangeCount, total: parsed.rows.length })}</p>
+          <p className="import-hint">{t('admin.importModesHint')}</p>
           <div className="form-actions">
-            <button type="button" className="btn-primary" onClick={handleUpload} disabled={uploading || rowsToUpload.length === 0}>
-              {uploading ? t('admin.importing') : t('admin.importButton')}
+            <button type="button" className="btn-outline" onClick={handleUploadNewOnly} disabled={uploading || rangeCount === 0}>
+              {action === 'newOnly' ? t('admin.importing') : t('admin.importNewOnlyButton')}
+            </button>
+            <button type="button" className="btn-primary" onClick={handleUploadChanged} disabled={uploading || rangeCount === 0}>
+              {action === 'update' ? t('admin.importing') : t('admin.importUpdateButton')}
+            </button>
+            <button type="button" className="btn-outline" onClick={handleUploadOverwrite} disabled={uploading || rangeCount === 0}>
+              {action === 'overwrite' ? t('admin.importing') : t('admin.importOverwriteButton')}
             </button>
             <button type="button" className="btn-outline" onClick={handleCancel} disabled={uploading}>
               {t('admin.cancel')}

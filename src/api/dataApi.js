@@ -1,7 +1,7 @@
 // Raw Firestore calls for the `data` collection: rows from admin Excel
 // imports, kept separate from the curated, user-facing `items` inventory in
 // api/itemsApi.js — see services/dataService.js for the import logic.
-import { doc, getDoc, setDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseClient';
 import { writeLog } from './logsApi';
 
@@ -54,6 +54,18 @@ export async function getDataByBarcode(barcode) {
 export async function savePhotoForBarcode(barcode, photoBase64) {
   await setDoc(doc(dataCol, barcode), { barcode, photo: photoBase64 }, { merge: true });
   writeLog('write', { action: 'set', collectionName: 'data', docId: barcode });
+}
+
+// Every existing row (doc ID plus its fields) in the collection — backs the
+// import form's "upload new only" and "update changed" modes (see
+// dataService.filterNewRows/filterChangedRows), which need to know which
+// barcodes already exist and, for the latter, what values they currently
+// hold. Reads every document in the collection, so this is opt-in only —
+// triggered by those buttons, never run on every import.
+export async function listAll() {
+  const snap = await getDocs(dataCol);
+  writeLog('read', { action: 'list', collectionName: 'data', count: snap.size });
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 // Each row is keyed by `barcode`, used as the doc ID instead of an auto ID

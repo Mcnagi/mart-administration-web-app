@@ -286,7 +286,6 @@ export const translations = {
       importTitle: 'Import items',
       importHint:
         'Upload an .xlsx or .xls file with a header row. A "Barcode" column is required — it\'s used as each item\'s ID, so re-uploading the same barcode updates that item instead of duplicating it. Other column headers (Name, Quantity, Expiry Date, Category, Branch, Note, …) are matched to item fields automatically.',
-      importButton: 'Import',
       importing: 'Importing…',
       importSummary: 'Imported {imported} row(s), skipped {skipped} without a barcode.',
       errorImport: 'Import failed.',
@@ -298,7 +297,12 @@ export const translations = {
       importSkip: 'Skip',
       importLimit: 'Limit',
       importLimitAll: 'All',
-      importUploadRange: 'Will upload {count} of {total} row(s).',
+      importUploadRange: 'Selected range: {count} of {total} row(s).',
+      importModesHint:
+        '"Upload new only" adds barcodes not already in the database. "Update changed" also updates existing rows whose data has changed, leaving unchanged ones untouched. "Overwrite all" writes every row in range regardless.',
+      importNewOnlyButton: 'Upload new only',
+      importUpdateButton: 'Update changed',
+      importOverwriteButton: 'Overwrite all',
       scanListTagsTitle: 'Scan list tags',
       newTagLabel: 'New tag',
       addTag: 'Add tag',
@@ -630,7 +634,6 @@ export const translations = {
       importTitle: '품목 일괄 등록',
       importHint:
         '머리글 행이 있는 .xlsx 또는 .xls 파일을 업로드하세요. "Barcode" 열은 필수이며 각 품목의 ID로 사용되므로, 같은 바코드를 다시 업로드하면 중복 생성 대신 기존 품목이 갱신됩니다. 다른 열 이름(Name, Quantity, Expiry Date, Category, Branch, Note 등)은 자동으로 품목 필드에 매칭됩니다.',
-      importButton: '가져오기',
       importing: '가져오는 중…',
       importSummary: '{imported}개 행을 가져왔고, 바코드가 없는 {skipped}개 행을 건너뛰었습니다.',
       errorImport: '가져오기에 실패했습니다.',
@@ -642,7 +645,12 @@ export const translations = {
       importSkip: '건너뛰기',
       importLimit: '개수 제한',
       importLimitAll: '전체',
-      importUploadRange: '{total}개 행 중 {count}개를 업로드합니다.',
+      importUploadRange: '선택 범위: 전체 {total}개 행 중 {count}개.',
+      importModesHint:
+        '"신규만 업로드"는 아직 등록되지 않은 바코드만 추가합니다. "변경분 업데이트"는 데이터가 변경된 기존 행도 함께 갱신하며, 변경되지 않은 행은 그대로 둡니다. "전체 덮어쓰기"는 선택 범위의 모든 행을 무조건 기록합니다.',
+      importNewOnlyButton: '신규만 업로드',
+      importUpdateButton: '변경분 업데이트',
+      importOverwriteButton: '전체 덮어쓰기',
       scanListTagsTitle: '스캔 목록 태그',
       newTagLabel: '새 태그',
       addTag: '태그 추가',
