@@ -11,6 +11,7 @@ import {
   resolveScannedItemInfo,
   formatScanListBarcode,
   updateItemQuantity,
+  resetItemQuantities,
   removeItemAt,
   uniqueScanListCompanies,
   sortScanListItems,
@@ -53,6 +54,8 @@ export default function ScanListBuilderPage() {
   const [error, setError] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedCompanies, setSelectedCompanies] = useState(() => new Set());
+  const [selecting, setSelecting] = useState(false);
+  const [selectedBarcodes, setSelectedBarcodes] = useState(() => new Set());
 
   const companyOptions = useMemo(() => uniqueScanListCompanies(items), [items]);
 
@@ -71,6 +74,41 @@ export default function ScanListBuilderPage() {
       else next.add(company);
       return next;
     });
+  }
+
+  // Reset any in-progress selection whenever select mode is toggled, in
+  // either direction — same convention as ItemsPage/ScanListHistoryPage.
+  useEffect(() => {
+    setSelectedBarcodes(new Set());
+  }, [selecting]);
+
+  function toggleBarcodeSelected(barcode) {
+    setSelectedBarcodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(barcode)) next.delete(barcode);
+      else next.add(barcode);
+      return next;
+    });
+  }
+
+  // "Select all" only ever touches the currently visible (filtered) rows,
+  // so it can't silently select items hidden by the company filter.
+  const allVisibleSelected = visibleItems.length > 0 && visibleItems.every((item) => selectedBarcodes.has(item.barcode));
+
+  function toggleSelectAllVisible() {
+    setSelectedBarcodes((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleItems.forEach((item) => next.delete(item.barcode));
+      else visibleItems.forEach((item) => next.add(item.barcode));
+      return next;
+    });
+  }
+
+  function handleRemoveSelected() {
+    if (selectedBarcodes.size === 0) return;
+    if (!confirm(t('scanLists.confirmBatchRemove', { count: selectedBarcodes.size }))) return;
+    setItems((prev) => prev.filter((item) => !selectedBarcodes.has(item.barcode)));
+    setSelecting(false);
   }
 
   useEffect(() => scheduleIdle(() => { import('../components/ScanListScanner'); }), []);
@@ -157,6 +195,11 @@ export default function ScanListBuilderPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleResetQuantities() {
+    if (!confirm(t('scanLists.confirmResetQuantities'))) return;
+    setItems(resetItemQuantities(items));
   }
 
   async function handleExport(exportItems) {
@@ -269,10 +312,43 @@ export default function ScanListBuilderPage() {
               </div>
             )}
 
+            <div className="form-actions">
+              <button type="button" className="btn-outline" onClick={handleResetQuantities}>
+                {t('scanLists.resetQuantities')}
+              </button>
+              <button
+                type="button"
+                className={`select-toggle-btn${selecting ? ' active' : ''}`}
+                onClick={() => setSelecting((s) => !s)}
+              >
+                {selecting ? t('scanLists.cancelSelect') : t('scanLists.selectToRemove')}
+              </button>
+              {selecting && (
+                <button
+                  type="button"
+                  className="btn-outline btn-outline-danger"
+                  disabled={selectedBarcodes.size === 0}
+                  onClick={handleRemoveSelected}
+                >
+                  {t('scanLists.removeSelected', { count: selectedBarcodes.size })}
+                </button>
+              )}
+            </div>
+
             <div className="import-preview-table-wrap scan-list-items-wrap">
               <table className="import-preview-table">
                 <thead>
                   <tr>
+                    {selecting && (
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={allVisibleSelected}
+                          onChange={toggleSelectAllVisible}
+                          aria-label={t('scanLists.selectAll')}
+                        />
+                      </th>
+                    )}
                     <th>{t('scanLists.nameCol')}</th>
                     <th>{t('scanLists.nameKoCol')}</th>
                     <th>{t('scanLists.categoryCol')}</th>
@@ -287,6 +363,16 @@ export default function ScanListBuilderPage() {
                     const realIndex = items.indexOf(item);
                     return (
                       <tr key={item.barcode}>
+                        {selecting && (
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedBarcodes.has(item.barcode)}
+                              onChange={() => toggleBarcodeSelected(item.barcode)}
+                              aria-label={t('scanLists.selectRow', { name: item.name })}
+                            />
+                          </td>
+                        )}
                         <td>{item.name}</td>
                         <td>{item.nameKo}</td>
                         <td>{item.category}</td>

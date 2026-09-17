@@ -108,6 +108,14 @@ export function updateItemQuantity(items, index, quantity) {
   return items.map((item, i) => (i === index ? { ...item, quantity: value } : item));
 }
 
+// Batch reset for the builder's "set all quantities to 1" button — e.g. a
+// scan session left several items over-counted from repeat scans and the
+// admin wants a clean slate to re-verify counts, rather than fixing each
+// row's number one at a time.
+export function resetItemQuantities(items) {
+  return items.map((item) => ({ ...item, quantity: 1 }));
+}
+
 export function removeItemAt(items, index) {
   return items.filter((_, i) => i !== index);
 }
