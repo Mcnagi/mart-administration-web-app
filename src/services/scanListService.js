@@ -135,6 +135,35 @@ export function sortScanListItems(items) {
   return [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
+// First run of digits in `name`, as a number — or null if it has none. Used
+// to rank default (timestamp-named, e.g. "20260924-1432") lists by recency
+// without parsing them as dates, since a custom-renamed list may not follow
+// that format at all.
+function leadingNumber(name) {
+  const match = String(name || '').match(/\d+/);
+  return match ? parseInt(match[0], 10) : null;
+}
+
+// History page order: tagged lists before untagged, then by name — numeric
+// lists (e.g. the default yyyymmdd-hhmm name) newest-number-first, untagged
+// or non-numeric names falling back to plain alphabetical. Returns a new
+// array — never mutates `scanLists`.
+export function sortScanLists(scanLists) {
+  return [...scanLists].sort((a, b) => {
+    const aTagged = a.tagId ? 0 : 1;
+    const bTagged = b.tagId ? 0 : 1;
+    if (aTagged !== bTagged) return aTagged - bTagged;
+
+    const aNum = leadingNumber(a.name);
+    const bNum = leadingNumber(b.name);
+    if (aNum !== null && bNum !== null && aNum !== bNum) return bNum - aNum;
+    if (aNum !== null && bNum === null) return -1;
+    if (aNum === null && bNum !== null) return 1;
+
+    return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
 // Combines several scan lists' items into one array, summing quantities for
 // any barcode that appears in more than one source list — the point of
 // merging is to consolidate repeat items (e.g. two partial scans of the same

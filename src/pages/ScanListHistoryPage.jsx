@@ -10,6 +10,7 @@ import {
   mergeScanListItems,
   saveScanListDraft,
   defaultScanListName,
+  sortScanLists,
 } from '../services/scanListService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ScanListRow from '../components/scanLists/ScanListRow';
@@ -26,7 +27,7 @@ export default function ScanListHistoryPage() {
 
   function loadScanLists() {
     return fetchScanLists()
-      .then(setScanLists)
+      .then((data) => setScanLists(sortScanLists(data)))
       .catch((err) => setError(err.message || t('scanLists.errorLoad')));
   }
 
@@ -39,7 +40,7 @@ export default function ScanListHistoryPage() {
       if (cancelled) return;
       fetchScanLists()
         .then((data) => {
-          if (!cancelled) setScanLists(data);
+          if (!cancelled) setScanLists(sortScanLists(data));
         })
         .catch((err) => {
           if (!cancelled) setError(err.message || t('scanLists.errorLoad'));

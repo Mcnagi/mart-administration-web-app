@@ -21,6 +21,7 @@ import {
   clearScanListDraft,
 } from '../services/scanListService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Toast from '../components/Toast';
 import { BackIcon, ScanListIcon, FilterIcon } from '../components/icons';
 import { scheduleIdle } from '../utils/idleSchedule';
 
@@ -48,6 +49,7 @@ export default function ScanListBuilderPage() {
   const [tags, setTags] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
+  const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -167,13 +169,18 @@ export default function ScanListBuilderPage() {
     const trimmed = manualBarcode.trim();
     if (!trimmed) return;
     setError('');
-    setManualBarcode('');
     const info = await resolveScannedItemInfo(trimmed).catch(() => null);
     if (!info?.name) {
       setError(t('scanLists.itemNotFound', { barcode: trimmed }));
       return;
     }
-    setItems((prev) => addScannedBarcode(prev, trimmed, info));
+    // Only clear the field once the barcode actually resolves, so a failed
+    // lookup leaves the typed value in place for the user to correct/retry.
+    setManualBarcode('');
+    const nextItems = addScannedBarcode(items, trimmed, info);
+    setItems(nextItems);
+    const added = nextItems.find((item) => item.barcode === trimmed);
+    setToast(t('scanLists.itemAdded', { name: added.name, qty: added.quantity }));
   }
 
   function handleTagChange(e) {
@@ -253,8 +260,10 @@ export default function ScanListBuilderPage() {
         <form className="scan-list-manual-row" onSubmit={handleManualAdd}>
           <input
             type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={manualBarcode}
-            onChange={(e) => setManualBarcode(e.target.value)}
+            onChange={(e) => setManualBarcode(e.target.value.replace(/\D/g, ''))}
             placeholder={t('scanLists.manualBarcodePlaceholder')}
           />
           <button type="submit" className="btn-outline" disabled={!manualBarcode.trim()}>
@@ -431,6 +440,8 @@ export default function ScanListBuilderPage() {
           <ScanListScanner items={items} onItemAdded={setItems} onClose={() => setScanning(false)} />
         </Suspense>
       )}
+
+      {toast && <Toast message={toast} duration={2000} onDismiss={() => setToast('')} />}
     </div>
   );
 }
