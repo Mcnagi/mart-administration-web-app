@@ -243,6 +243,14 @@ h1, h2, h3 {
   border-color: var(--accent);
 }
 
+.home-version {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Sticky bar primitives ----------
    Floating bars pinned to the viewport edge (top or bottom) and anchored to
    the left, mid, or right side. Width is content-sized (max-content), never
@@ -1987,9 +1995,11 @@ textarea:focus {
 
 /* ---------- Toast ---------- */
 
+/* --vv-offset is set by Toast.jsx from window.visualViewport.offsetTop so the
+   toast follows the visible area when the on-screen keyboard pans the page. */
 .toast {
   position: fixed;
-  top: max(calc(var(--topbar-h) + 12px), env(safe-area-inset-top));
+  top: calc(max(calc(var(--topbar-h) + 12px), env(safe-area-inset-top)) + var(--vv-offset, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
