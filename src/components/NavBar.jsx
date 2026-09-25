@@ -11,6 +11,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
 import { scheduleIdle } from '../utils/idleSchedule';
 import { useScrolledPast } from '../hooks/useScrolledPast';
+import { useHardwareScanner } from '../hooks/useHardwareScanner';
 
 // Lazy-loaded for the same reason as in ItemFormPage: pulls in @zxing/browser,
 // only needed by the minority of visits that tap the scan FAB.
@@ -52,6 +53,11 @@ export default function NavBar() {
     setScanning(false);
     navigate('/add', { state: { barcode: code } });
   }
+
+  // A PDA's built-in scanner works from any page, same as the scan FAB.
+  // Priority 0: pages that handle scans themselves (item form, scan list
+  // builder) take precedence over this app-wide fallback.
+  useHardwareScanner(handleBarcodeDetected, { priority: 0 });
 
   function handleManualEntry() {
     setScanning(false);

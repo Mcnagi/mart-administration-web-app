@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
@@ -24,6 +24,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { BackIcon, ScanListIcon, FilterIcon } from '../components/icons';
 import { scheduleIdle } from '../utils/idleSchedule';
+import { useHardwareScanner } from '../hooks/useHardwareScanner';
+import { useScanInput } from '../hooks/useScanInput';
 
 // Lazy-loaded for the same reason as NavBar/ItemFormPage's scanner: pulls in
 // @zxing/browser, only needed by the minority of visits that tap Scan.
@@ -46,6 +48,11 @@ export default function ScanListBuilderPage() {
   const [tagId, setTagId] = useState(() => draft?.tagId ?? '');
   const [tagLabel, setTagLabel] = useState(() => draft?.tagLabel ?? '');
   const [items, setItems] = useState(() => draft?.items ?? []);
+  // Latest list for addBarcode's post-await update: a PDA scanner can fire
+  // several scans before the first lookup resolves and re-renders, and each
+  // must build on the previous one's result rather than a stale closure.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const [tags, setTags] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
@@ -160,28 +167,40 @@ export default function ScanListBuilderPage() {
     saveScanListDraft(scanListId ?? null, { name, tagId, tagLabel, items });
   }, [scanListId, name, tagId, tagLabel, items, loading]);
 
-  // Typed-in equivalent of a camera scan (worn/damaged barcodes, or a code
-  // the camera just won't focus on) — same resolve-then-add rule as
-  // ScanListScanner.handleDetected: a barcode with no match in the imported
-  // data collection isn't added.
-  async function handleManualAdd(e) {
-    e.preventDefault();
-    const trimmed = manualBarcode.trim();
-    if (!trimmed) return;
+  // Same resolve-then-add rule as ScanListScanner.handleDetected: a barcode
+  // with no match in the imported data collection isn't added. Returns
+  // whether it was added.
+  async function addBarcode(barcode) {
     setError('');
-    const info = await resolveScannedItemInfo(trimmed).catch(() => null);
+    const info = await resolveScannedItemInfo(barcode).catch(() => null);
     if (!info?.name) {
-      setError(t('scanLists.itemNotFound', { barcode: trimmed }));
-      return;
+      setError(t('scanLists.itemNotFound', { barcode }));
+      return false;
     }
-    // Only clear the field once the barcode actually resolves, so a failed
-    // lookup leaves the typed value in place for the user to correct/retry.
-    setManualBarcode('');
-    const nextItems = addScannedBarcode(items, trimmed, info);
+    const nextItems = addScannedBarcode(itemsRef.current, barcode, info);
+    itemsRef.current = nextItems;
     setItems(nextItems);
-    const added = nextItems.find((item) => item.barcode === trimmed);
+    const added = nextItems.find((item) => item.barcode === barcode);
     setToast(t('scanLists.itemAdded', { name: added.name, qty: added.quantity }));
+    return true;
   }
+
+  // Typed-in equivalent of a camera scan (worn/damaged barcodes, or a code
+  // the camera just won't focus on) — and the PDA scanner's target when the
+  // box has focus, submitting each scan automatically.
+  const { inputProps: manualInputProps, submit: submitManual } = useScanInput(async (code) => {
+    // Only clear the field once the barcode actually resolves, so a failed
+    // lookup leaves the value in place (selected) to correct/retry.
+    if (await addBarcode(code)) setManualBarcode('');
+  });
+
+  function handleManualAdd(e) {
+    e.preventDefault();
+    submitManual();
+  }
+
+  // PDA's built-in scanner: adds straight to the list, no camera needed.
+  useHardwareScanner(addBarcode);
 
   function handleTagChange(e) {
     const id = e.target.value;
@@ -259,6 +278,7 @@ export default function ScanListBuilderPage() {
 
         <form className="scan-list-manual-row" onSubmit={handleManualAdd}>
           <input
+            {...manualInputProps}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"

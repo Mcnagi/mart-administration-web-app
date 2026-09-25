@@ -13,6 +13,8 @@ import { resolveUploaderDisplayName } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ItemDetailsFields from '../components/ItemDetailsFields';
 import { BackIcon, BarcodeIcon } from '../components/icons';
+import { useHardwareScanner } from '../hooks/useHardwareScanner';
+import { useScanInput } from '../hooks/useScanInput';
 
 // Lazy-loaded: pulls in @zxing/browser, which is sizable and only needed by
 // the minority of visits that actually tap "Scan".
@@ -121,6 +123,11 @@ export default function ItemFormPage() {
     setScanning(false);
     handleSearch(code);
   }
+
+  useHardwareScanner(handleBarcodeDetected);
+  // Scanning (or Enter) in the barcode box itself looks the code up in place,
+  // rather than Enter submitting the whole form.
+  const { inputProps: barcodeInputProps } = useScanInput(handleSearch);
 
   function handlePickCandidate(base64) {
     setPhotoFile(null);
@@ -315,6 +322,7 @@ export default function ItemFormPage() {
           {t('itemForm.barcode')}
           <div className="barcode-input-row">
             <input
+              {...barcodeInputProps}
               type="text"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}

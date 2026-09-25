@@ -19,6 +19,7 @@ const PromoPrintPage = lazy(() => import('./pages/PromoPrintPage'));
 const ScanListHistoryPage = lazy(() => import('./pages/ScanListHistoryPage'));
 const ScanListBuilderPage = lazy(() => import('./pages/ScanListBuilderPage'));
 const LocalDataPage = lazy(() => import('./pages/LocalDataPage'));
+const ScanTestPage = lazy(() => import('./pages/ScanTestPage'));
 
 // React Router's client-side navigation never resets window scroll on its
 // own — without this, a route entered while scrolled down (e.g. clicking
@@ -62,6 +63,7 @@ function AppLayout() {
                   <Route path="/scan-lists/new" element={<ScanListBuilderPage />} />
                   <Route path="/scan-lists/:scanListId/edit" element={<ScanListBuilderPage />} />
                   <Route path="/local-data" element={<LocalDataPage />} />
+                  <Route path="/scan-test" element={<ScanTestPage />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route element={<AdminRoute />}>
                     <Route path="/admin" element={<AdminUsersPage />} />
