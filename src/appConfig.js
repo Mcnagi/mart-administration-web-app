@@ -11,3 +11,8 @@ export const BRANCHES = (import.meta.env.VITE_BRANCHES || '')
   .split(',')
   .map((b) => b.trim())
   .filter(Boolean);
+
+// Injected at build time by vite.config.js (define).
+export const APP_VERSION = __APP_VERSION__;
+export const APP_COMMIT = __APP_COMMIT__;
+export const BUILD_DATE = __BUILD_DATE__;

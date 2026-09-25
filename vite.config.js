@@ -1,6 +1,19 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+import pkg from './package.json' with { type: 'json' }
+
+// Short commit hash of the build, so the home page footer tells exactly which
+// code a device is running (useful for confirming a PWA picked up an update).
+// Falls back to 'dev' where git isn't available.
+function gitCommit() {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -8,6 +21,11 @@ export default defineConfig(({ mode }) => {
   const appName = env.VITE_APP_NAME || 'MartAdmin';
 
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __APP_COMMIT__: JSON.stringify(gitCommit()),
+      __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    },
     plugins: [
       react(),
       VitePWA({

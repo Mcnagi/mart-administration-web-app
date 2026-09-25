@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
+import { APP_VERSION, APP_COMMIT, BUILD_DATE } from '../appConfig';
 import { ItemsIcon, PromoIcon, ScanListIcon, LocalDataIcon, AdminIcon, AccountIcon } from '../components/icons';
 
 export default function HomePage() {
@@ -26,6 +27,9 @@ export default function HomePage() {
           </NavLink>
         ))}
       </div>
+      <p className="home-version">
+        v{APP_VERSION} ({APP_COMMIT}) · {BUILD_DATE}
+      </p>
     </div>
   );
 }
