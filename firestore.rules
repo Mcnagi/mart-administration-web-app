@@ -112,6 +112,15 @@ service cloud.firestore {
       allow read, write: if isActive();
     }
 
+    // Published local-data snapshot (see services/localDataService.js): a
+    // `meta` doc plus versioned overflow docs, each holding a `strings`
+    // array of long encoded strings.
+    // Any active user can download it; only admins can publish.
+    match /localData/{docId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
     // Firestore mirror of the pending-import string kept in localStorage
     match /imports/{docId} {
       allow read, write: if isAdmin();

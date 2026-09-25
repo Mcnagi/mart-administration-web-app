@@ -5,7 +5,7 @@ import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { APP_NAME } from '../appConfig';
-import { HomeIcon, ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon } from './icons';
+import { HomeIcon, ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon, LocalDataIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
@@ -121,6 +121,10 @@ export default function NavBar() {
             <NavLink to="/scan-lists" className={navLinkClass} onClick={() => setMenuOpen(false)}>
               <ScanListIcon />
               <span>{t('nav.scanLists')}</span>
+            </NavLink>
+            <NavLink to="/local-data" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+              <LocalDataIcon />
+              <span>{t('nav.localData')}</span>
             </NavLink>
             {isAdmin && (
               <NavLink to="/admin" className={navLinkClass} onClick={() => setMenuOpen(false)}>

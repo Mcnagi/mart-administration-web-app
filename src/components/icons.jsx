@@ -123,6 +123,16 @@ export function HomeIcon(props) {
   );
 }
 
+export function LocalDataIcon(props) {
+  return (
+    <svg {...common} {...props}>
+      <ellipse cx="12" cy="5.5" rx="7" ry="2.5" />
+      <path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13" />
+      <path d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5" />
+    </svg>
+  );
+}
+
 export function ScanListIcon(props) {
   return (
     <svg {...common} {...props}>

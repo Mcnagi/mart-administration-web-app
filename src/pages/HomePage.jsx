@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../context/LanguageContext';
-import { ItemsIcon, PromoIcon, ScanListIcon, AdminIcon, AccountIcon } from '../components/icons';
+import { ItemsIcon, PromoIcon, ScanListIcon, LocalDataIcon, AdminIcon, AccountIcon } from '../components/icons';
 
 export default function HomePage() {
   const { isAdmin } = useAuth();
@@ -11,6 +11,7 @@ export default function HomePage() {
     { to: '/items', label: t('nav.items'), Icon: ItemsIcon },
     { to: '/promos', label: t('nav.promos'), Icon: PromoIcon },
     { to: '/scan-lists', label: t('nav.scanLists'), Icon: ScanListIcon },
+    { to: '/local-data', label: t('nav.localData'), Icon: LocalDataIcon },
     ...(isAdmin ? [{ to: '/admin', label: t('nav.admin'), Icon: AdminIcon }] : []),
     { to: '/account', label: t('nav.account'), Icon: AccountIcon },
   ];
