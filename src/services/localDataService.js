@@ -6,7 +6,12 @@
 import * as localDataApi from '../api/localDataApi';
 import { t } from '../i18n/i18n';
 import { encodeRowsToChunks, decodeChunks, packStringsIntoDocs, utf8ByteLength } from '../utils/localDataEncoding';
-import { saveLocalData, loadLocalData, clearLocalData, requestPersistentStorage } from '../utils/localDataStore';
+import {
+  saveLocalData,
+  loadLocalData,
+  clearLocalData as clearLocalDataStore,
+  requestPersistentStorage,
+} from '../utils/localDataStore';
 
 // Parsing is identical to the admin data import — same header mapping,
 // encoding fixes, barcode dedupe and IncoCode -> companyName lookup.
@@ -92,7 +97,49 @@ export async function downloadToLocal() {
     console.error('[local data] failed to save to IndexedDB', err);
     throw new Error(t('errors.localDataQuota'));
   }
+  barcodeIndexPromise = null;
   return data;
 }
 
-export { loadLocalData, clearLocalData };
+export async function clearLocalData() {
+  await clearLocalDataStore();
+  barcodeIndexPromise = null;
+}
+
+export { loadLocalData };
+
+// Barcode -> row lookup over the on-device copy, built once from IndexedDB
+// and reused until the copy is re-downloaded or cleared (both reset it
+// above). Resolves to null when there's no copy, or the copy was published
+// without the barcode column — callers then fall back to Firestore (see
+// services/productLookupService.js).
+let barcodeIndexPromise = null;
+
+async function buildBarcodeIndex() {
+  const data = await loadLocalData();
+  if (!data?.rows) return null;
+  const keys = data.columns.map((c) => c.key);
+  const barcodeIndex = keys.indexOf('barcode');
+  if (barcodeIndex === -1) return null;
+  const rowsByBarcode = new Map();
+  data.rows.forEach((values) => rowsByBarcode.set(String(values[barcodeIndex]).trim(), values));
+  return { keys, rowsByBarcode };
+}
+
+export function getLocalBarcodeIndex() {
+  if (!barcodeIndexPromise) {
+    barcodeIndexPromise = buildBarcodeIndex().catch((err) => {
+      console.error('[local data] failed to build barcode index', err);
+      barcodeIndexPromise = null;
+      return null;
+    });
+  }
+  return barcodeIndexPromise;
+}
+
+// The row for `barcode` as an object keyed like a `data` collection doc
+// (product, product2, salePrice, ...), or null when it isn't in the copy.
+export function findLocalRow(index, barcode) {
+  const values = index.rowsByBarcode.get(barcode);
+  return values ? Object.fromEntries(index.keys.map((key, i) => [key, values[i]])) : null;
+}

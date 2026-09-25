@@ -2,9 +2,10 @@
 // orchestrating the api + image services. Views should call only this file,
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
-import { getDataByBarcode, savePhotoForBarcode } from '../api/dataApi';
+import { savePhotoForBarcode } from '../api/dataApi';
 import { getExternalProductImageUrl, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
+import { lookupBarcode, lookupBarcodeRow } from './productLookupService';
 import { t } from '../i18n/i18n';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -104,24 +105,22 @@ export async function fetchItemById(itemId) {
   return items.find((item) => item.id === itemId) ?? null;
 }
 
-// Drives the item form's barcode search button: checks our own imported
-// `data` collection for a product match, and works out what (if anything)
-// needs to happen next for the product photo — a cached candidate list
-// (from a since-removed photo-search feature, see api/dataApi.js) or, when
-// nothing is on file locally, a best-effort photo suggestion from Open Food
-// Facts (name/brand/category are not looked up externally — only the
-// photo). The caller (ItemFormPage) owns all UI/loading state; this just
-// makes the found/not-found decision and hands back what to show.
+// Drives the item form's barcode search button and scan: looks the barcode
+// up via productLookupService (the on-device copy when there is one, else
+// the imported `data` collection), and works out what (if anything) needs
+// to happen next for the product photo — a cached photo/candidate list on
+// the Firestore row or, when nothing is on file, a best-effort photo
+// suggestion from Open Food Facts (name/brand/category are not looked up
+// externally — only the photo). The on-device copy carries no photos, so a
+// local hit never shows a cached one. The caller (ItemFormPage) owns all
+// UI/loading state; this just makes the found/not-found decision and hands
+// back what to show.
 export async function searchProductByBarcode(barcode) {
   const trimmed = (barcode ?? '').trim();
   if (!trimmed) return null;
 
-  // A data/{barcode} doc can exist with only a legacy cached `photos` field
-  // and no `product` name (left behind by the old photo-search feature), so
-  // a real imported-row match requires `product` or `salePrice` — either
-  // means this doc actually carries imported data, not just doc existence.
-  const row = await getDataByBarcode(trimmed);
-  if (row?.product || row?.salePrice) {
+  const { row, legacyRow } = await lookupBarcode(trimmed);
+  if (row) {
     return {
       status: 'found',
       searchResult: row,
@@ -132,16 +131,16 @@ export async function searchProductByBarcode(barcode) {
     };
   }
 
-  // Not in our own Firestore data — no name/category to offer, but still
-  // worth a best-effort photo suggestion from Open Food Facts. Failures here
-  // (the service is down, network error, no photo on file) are all treated
-  // the same as "no photo" rather than surfaced as a search error, since our
-  // own lookup already succeeded (as a miss).
+  // Not in our own data — no name/category to offer, but still worth a
+  // best-effort photo suggestion from Open Food Facts. Failures here (the
+  // service is down, network error, no photo on file) are all treated the
+  // same as "no photo" rather than surfaced as a search error, since our own
+  // lookup already succeeded (as a miss).
   const externalImageUrl = await getExternalProductImageUrl(trimmed).catch(() => null);
   return {
     status: 'notFound',
-    cachedPhotos: row?.photos?.length ? row.photos : null,
-    canonicalPhoto: row?.photo || null,
+    cachedPhotos: legacyRow?.photos?.length ? legacyRow.photos : null,
+    canonicalPhoto: legacyRow?.photo || null,
     // Caller only auto-fills this if the user hasn't already picked a photo —
     // never clobber a manually chosen or existing (edit-mode) photo.
     externalImageUrl,
@@ -154,25 +153,25 @@ export function fetchExternalProductImage(imageUrl) {
   return getExternalProductImage(imageUrl);
 }
 
-// Looks up the imported `data` collection row for an item's barcode — the
-// source of truth for its English/Korean names and sale price (none of
+// Looks up the imported row for an item's barcode (via
+// productLookupService) — the source of truth for its English/Korean names and sale price (none of
 // which are stored on the item itself, see saveItem below). Used by the
 // promo builder to prefill a new promo from an item. Returns null when the
 // item has no barcode or no row is on file.
 export function fetchDataRowForBarcode(barcode) {
   const trimmed = (barcode ?? '').trim();
   if (!trimmed) return Promise.resolve(null);
-  return getDataByBarcode(trimmed);
+  return lookupBarcodeRow(trimmed);
 }
 
 // A barcode item doesn't store its own name (see saveItem below), so the
-// items list resolves one for display from the imported `data` collection
-// (same source ItemFormPage's search uses) — best-effort, since this backs a
+// items list resolves one for display from the imported data (same lookup
+// ItemFormPage's search uses) — best-effort, since this backs a
 // background display fill-in, not a user-initiated search, so a failure just
 // means no name rather than a surfaced error.
 export async function resolveProductName(barcode) {
   try {
-    const row = await getDataByBarcode(barcode);
+    const row = await lookupBarcodeRow(barcode);
     if (row?.product) return row.product;
   } catch {
     // no local match

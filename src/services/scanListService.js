@@ -5,7 +5,7 @@
 // directly.
 import * as scanListsApi from '../api/scanListsApi';
 import * as scanListTagsApi from '../api/scanListTagsApi';
-import { getDataByBarcode } from '../api/dataApi';
+import { lookupBarcodeRow } from './productLookupService';
 import { t } from '../i18n/i18n';
 
 // A scan list in progress (name/tag/items) not yet saved — kept so a misclick
@@ -43,20 +43,14 @@ function scannedItemInfoFromRow(row) {
   };
 }
 
-// Deliberately does NOT fall back to the external barcode API (unlike
-// itemService.resolveProductName) — scan lists only care about names
-// already on file in our own imported data, not a public lookup. A miss
-// retries once with a zero-prefixed barcode, since a common UPC-A
-// (12-digit) / EAN-13 (13-digit, leading "0") mismatch means the code the
-// camera reads and the code the import stored can differ by exactly that
-// leading zero.
+// Deliberately does NOT fall back to the external barcode API (unlike the
+// item form's photo suggestion) — scan lists only care about names already
+// on file in our own imported data. See productLookupService for where
+// that's searched and the zero-prefix retry.
 export async function resolveScannedItemInfo(barcode) {
-  const row = await getDataByBarcode(barcode).catch(() => null);
-  const info = scannedItemInfoFromRow(row);
-  if (info) return info;
-  const zeroPrefixedRow = await getDataByBarcode(`0${barcode}`).catch(() => null);
+  const row = await lookupBarcodeRow(barcode).catch(() => null);
   return (
-    scannedItemInfoFromRow(zeroPrefixedRow) || {
+    scannedItemInfoFromRow(row) || {
       name: '',
       nameKo: '',
       category: '',

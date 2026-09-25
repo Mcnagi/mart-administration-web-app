@@ -37,8 +37,9 @@ function withTimeout(promise, ms) {
 }
 
 // Looks up a single imported row by its barcode (the doc ID in this
-// collection — see upsertRowsByBarcode below), for the item form's barcode
-// search. Returns null when no row matches.
+// collection — see upsertRowsByBarcode below). Only called from
+// services/productLookupService.js, the shared barcode lookup, when the
+// device has no local-data copy. Returns null when no row matches.
 export async function getDataByBarcode(barcode) {
   const snap = await getDoc(doc(dataCol, barcode));
   writeLog('read', { action: 'get', collectionName: 'data', docId: barcode });
