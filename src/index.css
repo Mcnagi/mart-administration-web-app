@@ -945,6 +945,30 @@ textarea:focus {
   min-width: 0;
 }
 
+.scan-list-manual-row.delete-mode input {
+  border-color: var(--danger);
+}
+
+.scan-list-manual-row.delete-mode input:focus {
+  outline-color: var(--danger);
+}
+
+.select-toggle-btn.delete-mode-toggle.active {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.delete-mode-banner {
+  padding: 8px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .import-preview-table {
   border-collapse: collapse;
   width: 100%;
@@ -2045,6 +2069,23 @@ textarea:focus {
    fully opaque and would hide a normal .toast rendered as its sibling. */
 .toast-over-scanner {
   z-index: 101;
+}
+
+.toast.toast-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Delete-mode camera view (ScanListScanner): red frame and header so it's
+   obvious scans will remove rather than add. */
+.barcode-scanner-overlay.delete-mode .barcode-scanner-frame {
+  border-color: #ef4444;
+  border-width: 3px;
+}
+
+.barcode-scanner-overlay.delete-mode .barcode-scanner-header {
+  background: #dc2626;
+  color: #fff;
 }
 
 @keyframes toast-in {

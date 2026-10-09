@@ -5,14 +5,14 @@ import { useRef, useState } from 'react';
 import BarcodeScanner from './BarcodeScanner';
 import Toast from './Toast';
 import { useTranslation } from '../context/LanguageContext';
-import { addScannedBarcode, resolveScannedItemInfo } from '../services/scanListService';
+import { addScannedBarcode, removeScannedBarcode, resolveScannedItemInfo } from '../services/scanListService';
 
 // Ignores a re-detection of the same still-in-frame barcode for this long —
 // zxing's callback can refire on every frame while a code stays visible,
 // which would otherwise increment quantity many times for one physical scan.
 const RESCAN_COOLDOWN_MS = 1500;
 
-export default function ScanListScanner({ items, onItemAdded, onClose }) {
+export default function ScanListScanner({ items, deleteMode = false, onItemAdded, onClose }) {
   const { t } = useTranslation();
   const [toast, setToast] = useState('');
   // Mirrors the `items` prop so the scanner's onDetected callback (captured
@@ -28,6 +28,18 @@ export default function ScanListScanner({ items, onItemAdded, onClose }) {
       return;
     }
     lastScan.current = { barcode, at: now };
+
+    // Delete mode: drop the barcode's row if it's on the list, otherwise do
+    // nothing — no lookup needed, the row already holds the name.
+    if (deleteMode) {
+      const removed = itemsRef.current.find((item) => item.barcode === barcode);
+      if (!removed) return;
+      const nextItems = removeScannedBarcode(itemsRef.current, barcode);
+      itemsRef.current = nextItems;
+      onItemAdded(nextItems);
+      setToast(t('scanLists.itemRemoved', { name: removed.name }));
+      return;
+    }
 
     // A barcode with no match in our own imported data collection isn't
     // added — see resolveScannedItemInfo — so the row (and its toast) only
@@ -51,9 +63,16 @@ export default function ScanListScanner({ items, onItemAdded, onClose }) {
         onClose={onClose}
         onManualEntry={onClose}
         manualEntryLabel={t('scanLists.backToList')}
+        title={deleteMode ? t('scanLists.deleteModeScannerTitle') : undefined}
+        className={deleteMode ? 'delete-mode' : ''}
       />
       {toast && (
-        <Toast message={toast} duration={2000} onDismiss={() => setToast('')} className="toast-over-scanner" />
+        <Toast
+          message={toast}
+          duration={2000}
+          onDismiss={() => setToast('')}
+          className={`toast-over-scanner${deleteMode ? ' toast-danger' : ''}`}
+        />
       )}
     </>
   );

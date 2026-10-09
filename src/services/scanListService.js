@@ -114,6 +114,14 @@ export function removeItemAt(items, index) {
   return items.filter((_, i) => i !== index);
 }
 
+// Delete-mode counterpart of addScannedBarcode: drops the whole row for
+// `barcode`. Returns the same `items` array (identity unchanged) when the
+// barcode isn't on the list, so callers can tell nothing was removed.
+export function removeScannedBarcode(items, barcode) {
+  const index = items.findIndex((item) => item.barcode === barcode);
+  return index === -1 ? items : removeItemAt(items, index);
+}
+
 // Distinct, sorted company names actually present on the list — drives the
 // company filter's chip options. Items without a company (older lists saved
 // before companyName existed, or a barcode whose imported row had no inco

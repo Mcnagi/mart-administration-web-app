@@ -8,6 +8,7 @@ import {
   fetchScanListTags,
   saveScanList,
   addScannedBarcode,
+  removeScannedBarcode,
   resolveScannedItemInfo,
   formatScanListBarcode,
   updateItemQuantity,
@@ -65,6 +66,9 @@ export default function ScanListBuilderPage() {
   const [selectedCompanies, setSelectedCompanies] = useState(() => new Set());
   const [selecting, setSelecting] = useState(false);
   const [selectedBarcodes, setSelectedBarcodes] = useState(() => new Set());
+  // While on, every scan/manual entry removes that barcode's row instead of
+  // adding it (a barcode not on the list is silently ignored).
+  const [deleteMode, setDeleteMode] = useState(false);
 
   const companyOptions = useMemo(() => uniqueScanListCompanies(items), [items]);
 
@@ -172,6 +176,7 @@ export default function ScanListBuilderPage() {
   // whether it was added.
   async function addBarcode(barcode) {
     setError('');
+    if (deleteMode) return removeBarcode(barcode);
     const info = await resolveScannedItemInfo(barcode).catch(() => null);
     if (!info?.name) {
       setError(t('scanLists.itemNotFound', { barcode }));
@@ -182,6 +187,19 @@ export default function ScanListBuilderPage() {
     setItems(nextItems);
     const added = nextItems.find((item) => item.barcode === barcode);
     setToast(t('scanLists.itemAdded', { name: added.name, qty: added.quantity }));
+    return true;
+  }
+
+  // Delete-mode counterpart of addBarcode. Always reports success so the
+  // manual field clears either way — a barcode not on the list is a no-op.
+  function removeBarcode(barcode) {
+    const removed = itemsRef.current.find((item) => item.barcode === barcode);
+    if (removed) {
+      const nextItems = removeScannedBarcode(itemsRef.current, barcode);
+      itemsRef.current = nextItems;
+      setItems(nextItems);
+      setToast(t('scanLists.itemRemoved', { name: removed.name }));
+    }
     return true;
   }
 
@@ -274,9 +292,17 @@ export default function ScanListBuilderPage() {
           <button type="button" className="btn-outline" onClick={() => setScanning(true)}>
             <ScanListIcon /> {t('scanLists.scanButton')}
           </button>
+          <button
+            type="button"
+            className={`select-toggle-btn delete-mode-toggle${deleteMode ? ' active' : ''}`}
+            aria-pressed={deleteMode}
+            onClick={() => setDeleteMode((d) => !d)}
+          >
+            {t('scanLists.deleteMode')}
+          </button>
         </div>
 
-        <form className="scan-list-manual-row" onSubmit={handleManualAdd}>
+        <form className={`scan-list-manual-row${deleteMode ? ' delete-mode' : ''}`} onSubmit={handleManualAdd}>
           <input
             {...manualInputProps}
             type="text"
@@ -284,12 +310,21 @@ export default function ScanListBuilderPage() {
             pattern="[0-9]*"
             value={manualBarcode}
             onChange={(e) => setManualBarcode(e.target.value.replace(/\D/g, ''))}
-            placeholder={t('scanLists.manualBarcodePlaceholder')}
+            placeholder={deleteMode ? t('scanLists.manualRemovePlaceholder') : t('scanLists.manualBarcodePlaceholder')}
           />
-          <button type="submit" className="btn-outline" disabled={!manualBarcode.trim()}>
-            {t('scanLists.manualAdd')}
+          <button
+            type="submit"
+            className={`btn-outline${deleteMode ? ' btn-outline-danger' : ''}`}
+            disabled={!manualBarcode.trim()}
+          >
+            {deleteMode ? t('scanLists.manualRemove') : t('scanLists.manualAdd')}
           </button>
         </form>
+        {deleteMode && (
+          <div className="delete-mode-banner" role="status">
+            {t('scanLists.deleteModeHint')}
+          </div>
+        )}
 
         {noItems ? (
           <p className="import-hint">{t('scanLists.emptyBuilder')}</p>
@@ -457,11 +492,18 @@ export default function ScanListBuilderPage() {
 
       {scanning && (
         <Suspense fallback={<LoadingSpinner />}>
-          <ScanListScanner items={items} onItemAdded={setItems} onClose={() => setScanning(false)} />
+          <ScanListScanner items={items} deleteMode={deleteMode} onItemAdded={setItems} onClose={() => setScanning(false)} />
         </Suspense>
       )}
 
-      {toast && <Toast message={toast} duration={2000} onDismiss={() => setToast('')} />}
+      {toast && (
+        <Toast
+          message={toast}
+          duration={2000}
+          onDismiss={() => setToast('')}
+          className={deleteMode ? 'toast-danger' : ''}
+        />
+      )}
     </div>
   );
 }

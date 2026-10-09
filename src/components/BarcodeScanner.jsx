@@ -27,7 +27,7 @@ const HINTS = new Map([
   ],
 ]);
 
-export default function BarcodeScanner({ onDetected, onClose, onManualEntry, manualEntryLabel }) {
+export default function BarcodeScanner({ onDetected, onClose, onManualEntry, manualEntryLabel, title, className = '' }) {
   const { t } = useTranslation();
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
@@ -72,12 +72,17 @@ export default function BarcodeScanner({ onDetected, onClose, onManualEntry, man
   }, []);
 
   return (
-    <div className="barcode-scanner-overlay" role="dialog" aria-modal="true" aria-label={t('barcodeScanner.title')}>
+    <div
+      className={`barcode-scanner-overlay${className ? ` ${className}` : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || t('barcodeScanner.title')}
+    >
       <div className="barcode-scanner-header">
         <button type="button" className="icon-btn" onClick={onClose} aria-label={t('barcodeScanner.close')}>
           <BackIcon />
         </button>
-        <span>{t('barcodeScanner.title')}</span>
+        <span>{title || t('barcodeScanner.title')}</span>
       </div>
       {error ? (
         <div className="barcode-scanner-error">
