@@ -59,14 +59,6 @@
   box-sizing: border-box;
 }
 
-/* clip, not hidden: Safari treats an ancestor with any overflow-x/y value
-   other than visible/clip as a scroll container, which silently disables
-   position: sticky for every descendant (the top bar, and the items
-   toolbar's filter/sort/select controls, all went unstuck because of this). */
-html, body {
-  overflow-x: clip;
-}
-
 body {
   margin: 0;
 }
@@ -79,7 +71,15 @@ h1, h2, h3 {
 
 /* ---------- App shell ---------- */
 
+/* Guards against horizontal page scroll. On .app-shell, not html/body: an
+   overflow value on the root propagates to the viewport, and iOS Safari
+   then drops the screenshot "Full Page" option. clip, not hidden: Safari
+   treats an ancestor with any overflow-x/y value other than visible/clip as
+   a scroll container, which silently disables position: sticky for every
+   descendant (the top bar, and the items toolbar's filter/sort/select
+   controls, all went unstuck because of this). */
 .app-shell {
+  overflow-x: clip;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
