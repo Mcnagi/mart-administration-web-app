@@ -21,3 +21,11 @@ export function writeCachedScroll(y) {
     // position just won't be remembered this time.
   }
 }
+
+export function clearCachedScroll() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}

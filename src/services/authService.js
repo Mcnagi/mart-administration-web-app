@@ -2,7 +2,40 @@
 // this file, never api/authApi.js or api/usersApi.js directly.
 import * as authApi from '../api/authApi';
 import * as usersApi from '../api/usersApi';
+import { clearLocalData } from './localDataService';
+import { clearItemListDraft } from './itemListService';
+import { clearCompanyNameMap } from '../utils/companyNameCache';
+import { clearPendingRows } from '../utils/pendingImport';
+import { clearCachedFilters } from '../utils/itemsFilterCache';
+import { clearCachedScroll } from '../utils/itemsScrollCache';
 import { t } from '../i18n/i18n';
+
+// Signs out and wipes everything this app keeps on the device for the
+// signed-in user, so the next person to sign in here starts clean: the
+// downloaded local-data copy (IndexedDB), the unsaved item list draft, the
+// company-name cache, an admin's unfinished import rows, and the Items
+// page's remembered filters/scroll. Language is kept — it's a choice for
+// the device, not for the user. Used for every sign-out, whether the user
+// logged out or their account was disabled or removed. Clearing runs after
+// signing out, and a failure is only logged — it must never block that.
+//
+// A profile read that *failed* (e.g. offline) is not proof the account was
+// removed, so callers pass that case to authApi.signOutCurrentUser() alone
+// — wiping a several-MB download over a dropped connection would be worse
+// than a re-login.
+async function signOutAndClearDevice() {
+  await authApi.signOutCurrentUser();
+  try {
+    clearItemListDraft();
+    clearCompanyNameMap();
+    clearPendingRows();
+    clearCachedFilters();
+    clearCachedScroll();
+    await clearLocalData();
+  } catch (err) {
+    console.error('[sign-out] failed to clear device data', err);
+  }
+}
 
 // There is no self-service sign-up in this app on purpose: accounts are only
 // ever created by an admin (see userService.createUser). This function is
@@ -15,11 +48,12 @@ export async function login(email, password) {
   try {
     profile = await usersApi.getUserProfile(uid);
   } catch {
-    profile = null;
+    await authApi.signOutCurrentUser();
+    throw new Error(t('errors.accessRevoked'));
   }
 
   if (!profile || profile.disabled) {
-    await authApi.signOutCurrentUser();
+    await signOutAndClearDevice();
     throw new Error(t('errors.accessRevoked'));
   }
 
@@ -27,7 +61,7 @@ export async function login(email, password) {
 }
 
 export function logout() {
-  return authApi.signOutCurrentUser();
+  return signOutAndClearDevice();
 }
 
 // Re-fetches the current user's profile so a self-service edit (e.g. display
@@ -72,14 +106,15 @@ export function subscribeToSession(onChange) {
       return;
     }
     let profile = null;
+    let readFailed = false;
     try {
       profile = await usersApi.getUserProfile(firebaseUser.uid);
     } catch {
-      profile = null;
+      readFailed = true;
     }
     if (stopped) return;
-    if (!profile || profile.disabled) {
-      await authApi.signOutCurrentUser();
+    if (readFailed || !profile || profile.disabled) {
+      await (readFailed ? authApi.signOutCurrentUser() : signOutAndClearDevice());
       onChange({ user: null, profile: null });
       return;
     }

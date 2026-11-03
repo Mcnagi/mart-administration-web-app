@@ -36,6 +36,14 @@ export function writeCachedFilters(filters) {
   }
 }
 
+export function clearCachedFilters() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 let loadedThisRuntime = false;
 
 export function hasLoadedThisRuntime() {

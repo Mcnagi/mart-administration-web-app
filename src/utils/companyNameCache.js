@@ -28,3 +28,7 @@ export function loadCompanyNameMap() {
     return null;
   }
 }
+
+export function clearCompanyNameMap() {
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+}
