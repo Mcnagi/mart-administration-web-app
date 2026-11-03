@@ -5,7 +5,7 @@ import { useSelection } from '../context/SelectionContext';
 import { useTranslation } from '../context/LanguageContext';
 import { logout } from '../services/authService';
 import { APP_NAME } from '../appConfig';
-import { HomeIcon, ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ScanListIcon, LocalDataIcon } from './icons';
+import { HomeIcon, ItemsIcon, AdminIcon, AccountIcon, LogoutIcon, PromoIcon, BarcodeIcon, MenuIcon, ItemListIcon, LocalDataIcon } from './icons';
 import LanguageSwitcher from './LanguageSwitcher';
 import LoadingSpinner from './LoadingSpinner';
 import { StickyTop, StickyBottom } from './StickyBar';
@@ -55,7 +55,7 @@ export default function NavBar() {
   }
 
   // A PDA's built-in scanner works from any page, same as the scan FAB.
-  // Priority 0: pages that handle scans themselves (item form, scan list
+  // Priority 0: pages that handle scans themselves (item form, item list
   // builder) take precedence over this app-wide fallback.
   useHardwareScanner(handleBarcodeDetected, { priority: 0 });
 
@@ -124,9 +124,9 @@ export default function NavBar() {
               <PromoIcon />
               <span>{t('nav.promos')}</span>
             </NavLink>
-            <NavLink to="/scan-lists" className={navLinkClass} onClick={() => setMenuOpen(false)}>
-              <ScanListIcon />
-              <span>{t('nav.scanLists')}</span>
+            <NavLink to="/item-lists" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+              <ItemListIcon />
+              <span>{t('nav.itemLists')}</span>
             </NavLink>
             <NavLink to="/local-data" className={navLinkClass} onClick={() => setMenuOpen(false)}>
               <LocalDataIcon />

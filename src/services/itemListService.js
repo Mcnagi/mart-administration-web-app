@@ -1,25 +1,27 @@
-// Business logic for scan lists: building a working list from repeated
+// Business logic for item lists: building a working list from repeated
 // barcode scans, saving/loading it via Firestore, exporting it to Excel, the
 // admin-managed tag vocabulary offered when saving, and the admin's choice
 // of which local-data columns lists display. Views should call only this
-// file, never api/scanListsApi.js, api/scanListTagsApi.js or
+// file, never api/itemListsApi.js, api/itemListTagsApi.js or
 // api/settingsApi.js directly.
-import * as scanListsApi from '../api/scanListsApi';
-import * as scanListTagsApi from '../api/scanListTagsApi';
+import * as itemListsApi from '../api/itemListsApi';
+import * as itemListTagsApi from '../api/itemListTagsApi';
 import * as settingsApi from '../api/settingsApi';
 import { barcodeCandidates } from './productLookupService';
 import { getLocalBarcodeIndex, findLocalRow, fetchRemoteMeta } from './localDataService';
 import { t } from '../i18n/i18n';
 
-// A scan list in progress (name/tag/items) not yet saved — kept so a misclick
+// An item list in progress (name/tag/items) not yet saved — kept so a misclick
 // to another page doesn't lose an in-progress scan session. Session-local
 // (localStorage, not Firestore): this is a per-device safety net, not
 // something that needs to sync or be visible to other users. Only the most
-// recent unsaved draft is kept — see saveScanListDraft.
-const DRAFT_STORAGE_KEY = 'emart-scanlist-draft';
+// recent unsaved draft is kept — see saveItemListDraft.
+const DRAFT_STORAGE_KEY = 'emart-itemlist-draft';
 
 // `settings/{SETTINGS_DOC_ID}` holds `displayColumns`: the local-data
-// column keys (in order) the admin chose to show on scan lists.
+// column keys (in order) the admin chose to show on item lists. Doc ID
+// (like the scanLists/scanListTags collections) keeps the feature's
+// original "scan list" name so existing data still loads.
 const SETTINGS_DOC_ID = 'scanList';
 
 // Shown until an admin picks columns — whichever of these the local copy has.
@@ -29,20 +31,20 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
-// yyyymmdd-hhmm, e.g. "20260911-1432" — the default scan list name, applied
+// yyyymmdd-hhmm, e.g. "20260911-1432" — the default item list name, applied
 // at creation time and left editable from there.
-export function defaultScanListName(date = new Date()) {
+export function defaultItemListName(date = new Date()) {
   const datePart = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
   const timePart = `${pad(date.getHours())}${pad(date.getMinutes())}`;
   return `${datePart}-${timePart}`;
 }
 
-// A saved/draft scan list item is only { barcode, quantity } — everything
+// A saved/draft item list item is only { barcode, quantity } — everything
 // shown about it (name, category, price, ...) is looked up from this
 // device's local-data copy each time the list is displayed or exported (see
-// resolveScanListItems), so lists always reflect the latest published data.
+// resolveItemListItems), so lists always reflect the latest published data.
 // Also strips the extra fields lists saved before this change still carry.
-export function normalizeScanListItems(items) {
+export function normalizeItemListItems(items) {
   return (items ?? []).map((item) => ({ barcode: String(item.barcode), quantity: Number(item.quantity) || 1 }));
 }
 
@@ -71,13 +73,13 @@ export async function resolveScannedBarcode(barcode) {
 
 // Short label for a scanned item in toasts/aria-labels: its product name
 // from the local copy, or the barcode itself when it has none.
-export function scanListItemName(row, barcode) {
+export function itemListItemName(row, barcode) {
   return String(row?.product || row?.product2 || barcode);
 }
 
 // The list row matching a scanned/typed `barcode`, trying barcodeCandidates
 // so delete mode finds a row saved under the zero-prefixed code.
-export function findScanListItem(items, barcode) {
+export function findItemListItem(items, barcode) {
   const candidates = barcodeCandidates(barcode);
   return items.find((item) => candidates.includes(item.barcode)) ?? null;
 }
@@ -96,7 +98,7 @@ export function addScannedBarcode(items, barcode) {
 // (e.g. "8801234567890" -> "880...567890") so the items table stays
 // scannable at a glance. The stored `item.barcode` is never touched — this
 // only formats what's rendered.
-export function formatScanListBarcode(barcode) {
+export function formatItemListBarcode(barcode) {
   const value = String(barcode ?? '');
   return value.length <= 9 ? value : `${value.slice(0, 3)}...${value.slice(-6)}`;
 }
@@ -122,19 +124,19 @@ export function removeScannedBarcode(items, barcode) {
   return next.length === items.length ? items : next;
 }
 
-// Which local-data columns scan lists show, as { key, label } in the
-// admin's order (see saveScanListDisplayColumns). Read from Firestore once
+// Which local-data columns item lists show, as { key, label } in the
+// admin's order (see saveItemListDisplayColumns). Read from Firestore once
 // per session and cached; a failed read falls back to the defaults rather
 // than blocking the list.
 let displayColumnKeysPromise = null;
 
-export function fetchScanListDisplayColumnKeys() {
+export function fetchItemListDisplayColumnKeys() {
   if (!displayColumnKeysPromise) {
     displayColumnKeysPromise = settingsApi
       .getSetting(SETTINGS_DOC_ID)
       .then((data) => data?.displayColumns ?? null)
       .catch((err) => {
-        console.error('[scan lists] failed to load display columns', err);
+        console.error('[item lists] failed to load display columns', err);
         displayColumnKeysPromise = null;
         return null;
       });
@@ -142,7 +144,7 @@ export function fetchScanListDisplayColumnKeys() {
   return displayColumnKeysPromise;
 }
 
-export async function saveScanListDisplayColumns(keys) {
+export async function saveItemListDisplayColumns(keys) {
   await settingsApi.setSetting(SETTINGS_DOC_ID, { displayColumns: keys });
   displayColumnKeysPromise = Promise.resolve(keys);
 }
@@ -150,7 +152,7 @@ export async function saveScanListDisplayColumns(keys) {
 // Columns the admin can pick from: the local-data columns other than
 // barcode (always shown), from this device's copy when there is one,
 // otherwise from the published snapshot's metadata.
-export async function fetchScanListColumnOptions() {
+export async function fetchItemListColumnOptions() {
   const index = await getLocalBarcodeIndex();
   const columns = index?.columns ?? (await fetchRemoteMeta())?.columns ?? [];
   return columns.filter((c) => c.key !== 'barcode');
@@ -164,17 +166,17 @@ export function pickDisplayColumns(columns, keys) {
   return (keys ?? DEFAULT_DISPLAY_COLUMNS).map((key) => byKey.get(key)).filter(Boolean);
 }
 
-// Everything a scan list view needs to show its items: the local-data
+// Everything an item list view needs to show its items: the local-data
 // barcode index (null when this device has no copy) and the display
 // columns, as { key, label }.
-export async function loadScanListLookup() {
-  const [index, keys] = await Promise.all([getLocalBarcodeIndex(), fetchScanListDisplayColumnKeys()]);
+export async function loadItemListLookup() {
+  const [index, keys] = await Promise.all([getLocalBarcodeIndex(), fetchItemListDisplayColumnKeys()]);
   return { index, columns: index ? pickDisplayColumns(index.columns, keys) : [] };
 }
 
 // Pure: each item plus its local-copy row as `row` (null when the barcode
 // isn't in the copy, or there's no copy). The source `items` are untouched.
-export function resolveScanListItems(items, index) {
+export function resolveItemListItems(items, index) {
   return items.map((item) => ({ ...item, row: index ? (findLocalMatch(index, item.barcode)?.row ?? null) : null }));
 }
 
@@ -182,14 +184,14 @@ export function resolveScanListItems(items, index) {
 // company filter's chip options. Items without a company (not in the local
 // copy, or a copy published without companyName) are excluded from the
 // options rather than shown as a blank chip.
-export function uniqueScanListCompanies(resolvedItems) {
+export function uniqueItemListCompanies(resolvedItems) {
   return [...new Set(resolvedItems.map((item) => item.row?.companyName).filter(Boolean))].sort();
 }
 
 // Default display/export order: product name, barcode for items without
 // one. Returns a new array — never mutates `resolvedItems`.
-export function sortScanListItems(resolvedItems) {
-  const key = (item) => scanListItemName(item.row, item.barcode);
+export function sortItemListItems(resolvedItems) {
+  const key = (item) => itemListItemName(item.row, item.barcode);
   return [...resolvedItems].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
@@ -205,9 +207,9 @@ function leadingNumber(name) {
 // History page order: tagged lists before untagged, then by name — numeric
 // lists (e.g. the default yyyymmdd-hhmm name) newest-number-first, untagged
 // or non-numeric names falling back to plain alphabetical. Returns a new
-// array — never mutates `scanLists`.
-export function sortScanLists(scanLists) {
-  return [...scanLists].sort((a, b) => {
+// array — never mutates `itemLists`.
+export function sortItemLists(itemLists) {
+  return [...itemLists].sort((a, b) => {
     const aTagged = a.tagId ? 0 : 1;
     const bTagged = b.tagId ? 0 : 1;
     if (aTagged !== bTagged) return aTagged - bTagged;
@@ -222,90 +224,90 @@ export function sortScanLists(scanLists) {
   });
 }
 
-// Combines several scan lists' items into one array, summing quantities for
+// Combines several item lists' items into one array, summing quantities for
 // any barcode that appears in more than one source list — the point of
 // merging is to consolidate repeat items (e.g. two partial scans of the same
 // order), not to list them twice.
-export function mergeScanListItems(itemLists) {
+export function mergeItemListItems(itemLists) {
   const quantityByBarcode = new Map();
   for (const items of itemLists) {
-    for (const item of normalizeScanListItems(items)) {
+    for (const item of normalizeItemListItems(items)) {
       quantityByBarcode.set(item.barcode, (quantityByBarcode.get(item.barcode) ?? 0) + item.quantity);
     }
   }
   return [...quantityByBarcode].map(([barcode, quantity]) => ({ barcode, quantity }));
 }
 
-export function fetchScanLists() {
-  return scanListsApi.listScanLists();
+export function fetchItemLists() {
+  return itemListsApi.listItemLists();
 }
 
-export function fetchScanListTags() {
-  return scanListTagsApi.listScanListTags();
+export function fetchItemListTags() {
+  return itemListTagsApi.listItemListTags();
 }
 
 // `id` present -> update an existing list (reopened from history), absent
 // -> create a new one owned by `ownerId`.
-export async function saveScanList({ id, name, tagId, tagLabel, items }, ownerId) {
+export async function saveItemList({ id, name, tagId, tagLabel, items }, ownerId) {
   const trimmedName = (name ?? '').trim();
   if (!trimmedName) {
-    throw new Error(t('errors.scanListNameRequired'));
+    throw new Error(t('errors.itemListNameRequired'));
   }
   const payload = {
     name: trimmedName,
     tagId: tagId || null,
     tagLabel: tagId ? (tagLabel ?? '') : '',
-    items: normalizeScanListItems(items).filter((item) => item.quantity > 0),
+    items: normalizeItemListItems(items).filter((item) => item.quantity > 0),
   };
   if (id) {
-    await scanListsApi.updateScanList(id, payload);
+    await itemListsApi.updateItemList(id, payload);
     return id;
   }
-  const ref = await scanListsApi.createScanList(payload, ownerId);
+  const ref = await itemListsApi.createItemList(payload, ownerId);
   return ref.id;
 }
 
-export function removeScanList(scanListId) {
-  return scanListsApi.deleteScanList(scanListId);
+export function removeItemList(itemListId) {
+  return itemListsApi.deleteItemList(itemListId);
 }
 
-// Saves a new list that starts as a copy of `scanList` — same tag and
+// Saves a new list that starts as a copy of `itemList` — same tag and
 // items, name suffixed " (copy)" — for branching off an existing list (e.g.
 // a similar restock run) without re-scanning everything from scratch.
-export function duplicateScanList(scanList, ownerId) {
-  return saveScanList(
+export function duplicateItemList(itemList, ownerId) {
+  return saveItemList(
     {
-      name: `${scanList.name} (copy)`,
-      tagId: scanList.tagId,
-      tagLabel: scanList.tagLabel,
-      items: normalizeScanListItems(scanList.items),
+      name: `${itemList.name} (copy)`,
+      tagId: itemList.tagId,
+      tagLabel: itemList.tagLabel,
+      items: normalizeItemListItems(itemList.items),
     },
     ownerId
   );
 }
 
-export async function createScanListTag(label) {
+export async function createItemListTag(label) {
   const trimmed = (label ?? '').trim();
   if (!trimmed) {
     throw new Error(t('errors.tagLabelRequired'));
   }
-  const ref = await scanListTagsApi.createScanListTag(trimmed);
+  const ref = await itemListTagsApi.createItemListTag(trimmed);
   return ref.id;
 }
 
-export function removeScanListTag(tagId) {
-  return scanListTagsApi.deleteScanListTag(tagId);
+export function removeItemListTag(tagId) {
+  return itemListTagsApi.deleteItemListTag(tagId);
 }
 
-// `scanListId` is null for a new (unsaved) list, or the id of the list being
+// `itemListId` is null for a new (unsaved) list, or the id of the list being
 // edited — the draft is only ever offered back to the same context it was
-// saved from (see loadScanListDraft), so editing a *different* saved list
+// saved from (see loadItemListDraft), so editing a *different* saved list
 // doesn't pick up an unrelated in-progress draft.
-export function saveScanListDraft(scanListId, { name, tagId, tagLabel, items }) {
+export function saveItemListDraft(itemListId, { name, tagId, tagLabel, items }) {
   try {
     localStorage.setItem(
       DRAFT_STORAGE_KEY,
-      JSON.stringify({ scanListId: scanListId ?? null, name, tagId, tagLabel, items })
+      JSON.stringify({ itemListId: itemListId ?? null, name, tagId, tagLabel, items })
     );
   } catch {
     // Private browsing / storage quota — draft recovery just won't work this
@@ -313,19 +315,19 @@ export function saveScanListDraft(scanListId, { name, tagId, tagLabel, items }) 
   }
 }
 
-export function loadScanListDraft(scanListId) {
+export function loadItemListDraft(itemListId) {
   try {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
-    if (draft.scanListId !== (scanListId ?? null)) return null;
-    return { ...draft, items: normalizeScanListItems(draft.items) };
+    if (draft.itemListId !== (itemListId ?? null)) return null;
+    return { ...draft, items: normalizeItemListItems(draft.items) };
   } catch {
     return null;
   }
 }
 
-export function clearScanListDraft() {
+export function clearItemListDraft() {
   try {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
   } catch {
@@ -339,16 +341,16 @@ export function clearScanListDraft() {
 // looked up from this device's local copy), then quantity. Works on an
 // in-progress (not yet saved) list just as well as a saved one, since it
 // only reads `name`/`items` off whatever object it's given.
-export async function exportScanListToExcel(scanList) {
-  const [XLSX, { index, columns }] = await Promise.all([import('@e965/xlsx'), loadScanListLookup()]);
-  const items = sortScanListItems(resolveScanListItems(normalizeScanListItems(scanList.items), index));
+export async function exportItemListToExcel(itemList) {
+  const [XLSX, { index, columns }] = await Promise.all([import('@e965/xlsx'), loadItemListLookup()]);
+  const items = sortItemListItems(resolveItemListItems(normalizeItemListItems(itemList.items), index));
   const rows = items.map((item) => ({
-    [t('scanLists.barcodeCol')]: item.barcode,
+    [t('itemLists.barcodeCol')]: item.barcode,
     ...Object.fromEntries(columns.map((c) => [c.label, item.row?.[c.key] ?? ''])),
-    [t('scanLists.quantityCol')]: item.quantity,
+    [t('itemLists.quantityCol')]: item.quantity,
   }));
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'Items');
-  XLSX.writeFile(book, `${scanList.name}.xlsx`);
+  XLSX.writeFile(book, `${itemList.name}.xlsx`);
 }

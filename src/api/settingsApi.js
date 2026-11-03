@@ -1,6 +1,6 @@
 // Raw Firestore calls for the `settings` collection: one doc per
 // admin-managed app setting. No business rules here — callers' services
-// decide what each doc holds (e.g. services/scanListService.js owns
+// decide what each doc holds (e.g. services/itemListService.js owns
 // `settings/scanList`).
 import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebaseClient';

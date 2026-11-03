@@ -133,7 +133,7 @@ export function LocalDataIcon(props) {
   );
 }
 
-export function ScanListIcon(props) {
+export function ItemListIcon(props) {
   return (
     <svg {...common} {...props}>
       <rect x="5" y="4" width="14" height="17" rx="1.5" />

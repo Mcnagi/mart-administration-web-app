@@ -1,5 +1,5 @@
 // The one barcode -> imported-row lookup behind every barcode scan and
-// manual barcode search (item form, scan lists, promo prefill, items list
+// manual barcode search (item form, item lists, promo prefill, items list
 // name fill-in), so they all agree on what counts as a match.
 //
 // When this device has downloaded the local-data snapshot (see

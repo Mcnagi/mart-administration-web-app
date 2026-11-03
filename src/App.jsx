@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SelectionProvider } from './context/SelectionContext';
 import { ItemsProvider } from './context/ItemsContext';
@@ -16,8 +16,8 @@ const AccountPage = lazy(() => import('./pages/AccountPage'));
 const PromoLibraryPage = lazy(() => import('./pages/PromoLibraryPage'));
 const PromoBuilderPage = lazy(() => import('./pages/PromoBuilderPage'));
 const PromoPrintPage = lazy(() => import('./pages/PromoPrintPage'));
-const ScanListHistoryPage = lazy(() => import('./pages/ScanListHistoryPage'));
-const ScanListBuilderPage = lazy(() => import('./pages/ScanListBuilderPage'));
+const ItemListHistoryPage = lazy(() => import('./pages/ItemListHistoryPage'));
+const ItemListBuilderPage = lazy(() => import('./pages/ItemListBuilderPage'));
 const LocalDataPage = lazy(() => import('./pages/LocalDataPage'));
 const ScanTestPage = lazy(() => import('./pages/ScanTestPage'));
 
@@ -36,6 +36,11 @@ function ScrollToTop() {
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
+}
+
+function LegacyItemListEditRedirect() {
+  const { itemListId } = useParams();
+  return <Navigate to={`/item-lists/${itemListId}/edit`} replace />;
 }
 
 function AppLayout() {
@@ -59,9 +64,13 @@ function AppLayout() {
                   <Route path="/promos/new" element={<PromoBuilderPage />} />
                   <Route path="/promos/print" element={<PromoPrintPage />} />
                   <Route path="/promos/:promoId/edit" element={<PromoBuilderPage />} />
-                  <Route path="/scan-lists" element={<ScanListHistoryPage />} />
-                  <Route path="/scan-lists/new" element={<ScanListBuilderPage />} />
-                  <Route path="/scan-lists/:scanListId/edit" element={<ScanListBuilderPage />} />
+                  <Route path="/item-lists" element={<ItemListHistoryPage />} />
+                  <Route path="/item-lists/new" element={<ItemListBuilderPage />} />
+                  <Route path="/item-lists/:itemListId/edit" element={<ItemListBuilderPage />} />
+                  {/* Pre-rename URLs (the feature was "scan lists"), kept for bookmarks. */}
+                  <Route path="/scan-lists" element={<Navigate to="/item-lists" replace />} />
+                  <Route path="/scan-lists/new" element={<Navigate to="/item-lists/new" replace />} />
+                  <Route path="/scan-lists/:itemListId/edit" element={<LegacyItemListEditRedirect />} />
                   <Route path="/local-data" element={<LocalDataPage />} />
                   <Route path="/scan-test" element={<ScanTestPage />} />
                   <Route path="/account" element={<AccountPage />} />

@@ -1,4 +1,4 @@
-// Full-screen scanner for building a scan list: unlike NavBar's scan-FAB
+// Full-screen scanner for building an item list: unlike NavBar's scan-FAB
 // flow (one scan -> close -> navigate to /add), this stays open across many
 // scans, adding/incrementing a row each time without closing.
 import { useRef, useState } from 'react';
@@ -9,16 +9,16 @@ import {
   addScannedBarcode,
   removeScannedBarcode,
   resolveScannedBarcode,
-  findScanListItem,
-  scanListItemName,
-} from '../services/scanListService';
+  findItemListItem,
+  itemListItemName,
+} from '../services/itemListService';
 
 // Ignores a re-detection of the same still-in-frame barcode for this long —
 // zxing's callback can refire on every frame while a code stays visible,
 // which would otherwise increment quantity many times for one physical scan.
 const RESCAN_COOLDOWN_MS = 1500;
 
-export default function ScanListScanner({ items, deleteMode = false, onItemAdded, onClose }) {
+export default function ItemListScanner({ items, deleteMode = false, onItemAdded, onClose }) {
   const { t } = useTranslation();
   const [toast, setToast] = useState('');
   // Mirrors the `items` prop so the scanner's onDetected callback (captured
@@ -38,33 +38,33 @@ export default function ScanListScanner({ items, deleteMode = false, onItemAdded
     // Every scan is checked against the local-data copy — for the name in
     // the toast, and (when adding) to only ever add a barcode it has.
     const match = await resolveScannedBarcode(barcode).catch(() => ({ status: 'notFound' }));
-    const name = match.status === 'found' ? scanListItemName(match.row, barcode) : barcode;
+    const name = match.status === 'found' ? itemListItemName(match.row, barcode) : barcode;
 
     // Delete mode: drop the barcode's row if it's on the list, otherwise do
     // nothing.
     if (deleteMode) {
-      const removed = findScanListItem(itemsRef.current, barcode);
+      const removed = findItemListItem(itemsRef.current, barcode);
       if (!removed) return;
       const nextItems = removeScannedBarcode(itemsRef.current, removed.barcode);
       itemsRef.current = nextItems;
       onItemAdded(nextItems);
-      setToast(t('scanLists.itemRemoved', { name }));
+      setToast(t('itemLists.itemRemoved', { name }));
       return;
     }
 
     if (match.status === 'noLocalData') {
-      setToast(t('scanLists.noLocalData'));
+      setToast(t('itemLists.noLocalData'));
       return;
     }
     if (match.status !== 'found') {
-      setToast(t('scanLists.itemNotFound', { barcode }));
+      setToast(t('itemLists.itemNotFound', { barcode }));
       return;
     }
     const nextItems = addScannedBarcode(itemsRef.current, match.barcode);
     itemsRef.current = nextItems;
     onItemAdded(nextItems);
     const added = nextItems.find((item) => item.barcode === match.barcode);
-    setToast(t('scanLists.itemAdded', { name, qty: added.quantity }));
+    setToast(t('itemLists.itemAdded', { name, qty: added.quantity }));
   }
 
   return (
@@ -73,8 +73,8 @@ export default function ScanListScanner({ items, deleteMode = false, onItemAdded
         onDetected={handleDetected}
         onClose={onClose}
         onManualEntry={onClose}
-        manualEntryLabel={t('scanLists.backToList')}
-        title={deleteMode ? t('scanLists.deleteModeScannerTitle') : undefined}
+        manualEntryLabel={t('itemLists.backToList')}
+        title={deleteMode ? t('itemLists.deleteModeScannerTitle') : undefined}
         className={deleteMode ? 'delete-mode' : ''}
       />
       {toast && (

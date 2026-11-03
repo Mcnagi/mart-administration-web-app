@@ -33,7 +33,7 @@ function useVisualViewportOffset() {
 // whether the toast is mounted at all, so either path just needs to call the
 // same onDismiss. `className` lets a caller layer on a modifier (e.g. to sit
 // above another fixed overlay) — see .toast-over-scanner in index.css, used
-// by ScanListScanner so the toast isn't hidden behind the full-screen camera
+// by ItemListScanner so the toast isn't hidden behind the full-screen camera
 // view (z-index: 100). Portaled to <body> so no transformed/overflow ancestor
 // can re-anchor or clip the fixed positioning.
 export default function Toast({ message, duration = 5000, onDismiss, className = '' }) {

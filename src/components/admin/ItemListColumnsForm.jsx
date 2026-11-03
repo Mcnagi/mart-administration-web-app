@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import {
-  fetchScanListColumnOptions,
-  fetchScanListDisplayColumnKeys,
+  fetchItemListColumnOptions,
+  fetchItemListDisplayColumnKeys,
   pickDisplayColumns,
-  saveScanListDisplayColumns,
-} from '../../services/scanListService';
+  saveItemListDisplayColumns,
+} from '../../services/itemListService';
 import LoadingSpinner from '../LoadingSpinner';
 
-// Which local-data columns scan lists display (and export). Columns are
+// Which local-data columns item lists display (and export). Columns are
 // shown and saved in the local data's own column order.
-export default function ScanListColumnsForm() {
+export default function ItemListColumnsForm() {
   const { t } = useTranslation();
   const [options, setOptions] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
@@ -21,7 +21,7 @@ export default function ScanListColumnsForm() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchScanListColumnOptions(), fetchScanListDisplayColumnKeys()])
+    Promise.all([fetchItemListColumnOptions(), fetchItemListDisplayColumnKeys()])
       .then(([columns, keys]) => {
         if (cancelled) return;
         setOptions(columns);
@@ -50,7 +50,7 @@ export default function ScanListColumnsForm() {
     setMessage('');
     setBusy(true);
     try {
-      await saveScanListDisplayColumns(options.filter((c) => selected.has(c.key)).map((c) => c.key));
+      await saveItemListDisplayColumns(options.filter((c) => selected.has(c.key)).map((c) => c.key));
       setIsDefault(false);
       setMessage(t('admin.columnsSaved'));
     } catch (err) {
@@ -62,8 +62,8 @@ export default function ScanListColumnsForm() {
 
   return (
     <div className="item-form">
-      <h3>{t('admin.scanListColumnsTitle')}</h3>
-      <p className="import-hint">{t('admin.scanListColumnsHint')}</p>
+      <h3>{t('admin.itemListColumnsTitle')}</h3>
+      <p className="import-hint">{t('admin.itemListColumnsHint')}</p>
 
       {error && <div className="form-error">{error}</div>}
 
@@ -73,7 +73,7 @@ export default function ScanListColumnsForm() {
         <p className="import-hint">{t('admin.noColumnOptions')}</p>
       ) : (
         <form className="admin-columns-form" onSubmit={handleSave}>
-          {isDefault && <p className="import-hint">{t('admin.scanListColumnsDefault')}</p>}
+          {isDefault && <p className="import-hint">{t('admin.itemListColumnsDefault')}</p>}
           <div className="admin-column-options">
             {options.map((column) => (
               <label key={column.key} className="label-inline">

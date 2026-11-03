@@ -927,17 +927,17 @@ textarea:focus {
   margin: 4px 0 0;
 }
 
-/* Scan list builder's item table can grow well past a screenful while
+/* Item list builder's item table can grow well past a screenful while
    scanning, so it scrolls internally instead of pushing the Save/Export
    buttons down the page. */
-.scan-list-items-wrap {
+.item-list-items-wrap {
   max-height: 320px;
   overflow-y: auto;
 }
 
 /* A saved barcode this device's local-data copy doesn't have (or no copy
    at all) — only the barcode and quantity can be shown. */
-.scan-list-row-missing td {
+.item-list-row-missing td {
   color: var(--text-muted);
 }
 
@@ -955,21 +955,21 @@ textarea:focus {
   gap: 8px 16px;
 }
 
-.scan-list-manual-row {
+.item-list-manual-row {
   display: flex;
   gap: 8px;
 }
 
-.scan-list-manual-row input {
+.item-list-manual-row input {
   flex: 1;
   min-width: 0;
 }
 
-.scan-list-manual-row.delete-mode input {
+.item-list-manual-row.delete-mode input {
   border-color: var(--danger);
 }
 
-.scan-list-manual-row.delete-mode input:focus {
+.item-list-manual-row.delete-mode input:focus {
   outline-color: var(--danger);
 }
 
@@ -2096,7 +2096,7 @@ textarea:focus {
   color: #fff;
 }
 
-/* Delete-mode camera view (ScanListScanner): red frame and header so it's
+/* Delete-mode camera view (ItemListScanner): red frame and header so it's
    obvious scans will remove rather than add. */
 .barcode-scanner-overlay.delete-mode .barcode-scanner-frame {
   border-color: #ef4444;

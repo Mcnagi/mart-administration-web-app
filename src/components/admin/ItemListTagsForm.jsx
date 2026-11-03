@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
-import { fetchScanListTags, createScanListTag, removeScanListTag } from '../../services/scanListService';
+import { fetchItemListTags, createItemListTag, removeItemListTag } from '../../services/itemListService';
 import LoadingSpinner from '../LoadingSpinner';
 
-export default function ScanListTagsForm() {
+export default function ItemListTagsForm() {
   const { t } = useTranslation();
   const [tags, setTags] = useState(null);
   const [newLabel, setNewLabel] = useState('');
@@ -11,7 +11,7 @@ export default function ScanListTagsForm() {
   const [busy, setBusy] = useState(false);
 
   function refresh() {
-    return fetchScanListTags()
+    return fetchItemListTags()
       .then(setTags)
       .catch((err) => setError(err.message || t('admin.errorLoadTags')));
   }
@@ -25,7 +25,7 @@ export default function ScanListTagsForm() {
     setError('');
     setBusy(true);
     try {
-      await createScanListTag(newLabel);
+      await createItemListTag(newLabel);
       setNewLabel('');
       await refresh();
     } catch (err) {
@@ -39,7 +39,7 @@ export default function ScanListTagsForm() {
     if (!confirm(t('admin.confirmDeleteTag', { label: tag.label }))) return;
     setError('');
     try {
-      await removeScanListTag(tag.id);
+      await removeItemListTag(tag.id);
       await refresh();
     } catch (err) {
       setError(err.message || t('admin.errorDeleteTag'));
@@ -48,7 +48,7 @@ export default function ScanListTagsForm() {
 
   return (
     <div className="item-form">
-      <h3>{t('admin.scanListTagsTitle')}</h3>
+      <h3>{t('admin.itemListTagsTitle')}</h3>
       <form className="label-inline" onSubmit={handleAdd}>
         <label className="label-inline">
           {t('admin.newTagLabel')}
