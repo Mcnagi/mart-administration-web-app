@@ -16,7 +16,7 @@
 // initializer under React StrictMode, which deliberately double-invokes
 // those in development.
 
-const STORAGE_KEY = 'emart.itemsFilters.v1';
+const STORAGE_KEY = 'emart-items-filters';
 
 export function readCachedFilters() {
   try {

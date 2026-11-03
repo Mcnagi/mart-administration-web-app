@@ -16,7 +16,7 @@ import { t } from '../i18n/i18n';
 // (localStorage, not Firestore): this is a per-device safety net, not
 // something that needs to sync or be visible to other users. Only the most
 // recent unsaved draft is kept — see saveItemListDraft.
-const DRAFT_STORAGE_KEY = 'emart-itemlist-draft';
+const DRAFT_STORAGE_KEY = 'emart-item-list-draft';
 
 // `settings/{SETTINGS_DOC_ID}` holds `displayColumns`: the local-data
 // column keys (in order) the admin chose to show on item lists. Doc ID

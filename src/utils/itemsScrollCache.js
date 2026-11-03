@@ -2,7 +2,7 @@
 // away (e.g. into an item's detail) and back restores where the user left
 // off — same idea, and same sessionStorage-backed approach, as
 // itemsFilterCache.js.
-const STORAGE_KEY = 'emart.itemsScroll.v1';
+const STORAGE_KEY = 'emart-items-scroll';
 
 export function readCachedScroll() {
   try {

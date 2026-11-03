@@ -33,8 +33,11 @@ export default defineConfig(({ mode }) => {
         workbox: {
           // Precache the build output only. No runtimeCaching entries for
           // Firestore/API calls: inventory data must never be served stale
-          // from a Workbox cache — the Firestore SDK already has its own
-          // offline persistence for that.
+          // from a Workbox cache. Firestore itself keeps only an in-memory
+          // cache (plain getFirestore() in api/firebaseClient.js, no
+          // persistentLocalCache), so its data is re-read on every app load;
+          // the one dataset kept on-device is the local-data snapshot in
+          // IndexedDB (see utils/localDataStore.js).
           globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         },
         manifest: {
