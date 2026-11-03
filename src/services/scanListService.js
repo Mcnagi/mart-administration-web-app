@@ -1,11 +1,14 @@
 // Business logic for scan lists: building a working list from repeated
-// barcode scans, saving/loading it via Firestore, exporting it to Excel, and
-// the admin-managed tag vocabulary offered when saving. Views should call
-// only this file, never api/scanListsApi.js or api/scanListTagsApi.js
-// directly.
+// barcode scans, saving/loading it via Firestore, exporting it to Excel, the
+// admin-managed tag vocabulary offered when saving, and the admin's choice
+// of which local-data columns lists display. Views should call only this
+// file, never api/scanListsApi.js, api/scanListTagsApi.js or
+// api/settingsApi.js directly.
 import * as scanListsApi from '../api/scanListsApi';
 import * as scanListTagsApi from '../api/scanListTagsApi';
-import { lookupBarcodeRow } from './productLookupService';
+import * as settingsApi from '../api/settingsApi';
+import { barcodeCandidates } from './productLookupService';
+import { getLocalBarcodeIndex, findLocalRow, fetchRemoteMeta } from './localDataService';
 import { t } from '../i18n/i18n';
 
 // A scan list in progress (name/tag/items) not yet saved — kept so a misclick
@@ -14,6 +17,13 @@ import { t } from '../i18n/i18n';
 // something that needs to sync or be visible to other users. Only the most
 // recent unsaved draft is kept — see saveScanListDraft.
 const DRAFT_STORAGE_KEY = 'emart-scanlist-draft';
+
+// `settings/{SETTINGS_DOC_ID}` holds `displayColumns`: the local-data
+// column keys (in order) the admin chose to show on scan lists.
+const SETTINGS_DOC_ID = 'scanList';
+
+// Shown until an admin picks columns — whichever of these the local copy has.
+const DEFAULT_DISPLAY_COLUMNS = ['product', 'product2', 'companyName'];
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -27,64 +37,58 @@ export function defaultScanListName(date = new Date()) {
   return `${datePart}-${timePart}`;
 }
 
-// Every field a scan-list row can carry lives on the imported `data`
-// collection row for this barcode — name/Korean name, category, maker, and
-// sale price. Returns null when the row has no product name, since that's
-// the "not actually a match" signal callers check for.
-function scannedItemInfoFromRow(row) {
-  if (!row?.product) return null;
-  return {
-    name: row.product,
-    nameKo: row.product2 || '',
-    category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
-    maker: row.maker || '',
-    salePrice: row.salePrice || '',
-    companyName: row.companyName || '',
-  };
+// A saved/draft scan list item is only { barcode, quantity } — everything
+// shown about it (name, category, price, ...) is looked up from this
+// device's local-data copy each time the list is displayed or exported (see
+// resolveScanListItems), so lists always reflect the latest published data.
+// Also strips the extra fields lists saved before this change still carry.
+export function normalizeScanListItems(items) {
+  return (items ?? []).map((item) => ({ barcode: String(item.barcode), quantity: Number(item.quantity) || 1 }));
 }
 
-// Deliberately does NOT fall back to the external barcode API (unlike the
-// item form's photo suggestion) — scan lists only care about names already
-// on file in our own imported data. See productLookupService for where
-// that's searched and the zero-prefix retry.
-export async function resolveScannedItemInfo(barcode) {
-  const row = await lookupBarcodeRow(barcode).catch(() => null);
-  return (
-    scannedItemInfoFromRow(row) || {
-      name: '',
-      nameKo: '',
-      category: '',
-      maker: '',
-      salePrice: '',
-      companyName: '',
-    }
-  );
+// The local-copy row for `barcode` (trying barcodeCandidates in order), as
+// { barcode, row } where `barcode` is the code it's stored under in the
+// copy — or null when it isn't there.
+function findLocalMatch(index, barcode) {
+  for (const code of barcodeCandidates(barcode)) {
+    const row = findLocalRow(index, code);
+    if (row) return { barcode: code, row };
+  }
+  return null;
+}
+
+// Every scan checks the local-data copy only (never Firestore). Resolves to
+// { status: 'found', barcode, row } — `barcode` being the code as stored in
+// the copy, so a UPC-A scan of an EAN-13 product lands on the same list row
+// as a scan of the EAN-13 itself — or { status: 'notFound' }, or
+// { status: 'noLocalData' } when this device hasn't downloaded a copy.
+export async function resolveScannedBarcode(barcode) {
+  const index = await getLocalBarcodeIndex();
+  if (!index) return { status: 'noLocalData' };
+  const match = findLocalMatch(index, barcode);
+  return match ? { status: 'found', ...match } : { status: 'notFound' };
+}
+
+// Short label for a scanned item in toasts/aria-labels: its product name
+// from the local copy, or the barcode itself when it has none.
+export function scanListItemName(row, barcode) {
+  return String(row?.product || row?.product2 || barcode);
+}
+
+// The list row matching a scanned/typed `barcode`, trying barcodeCandidates
+// so delete mode finds a row saved under the zero-prefixed code.
+export function findScanListItem(items, barcode) {
+  const candidates = barcodeCandidates(barcode);
+  return items.find((item) => candidates.includes(item.barcode)) ?? null;
 }
 
 // Pure array transform, no Firestore call: increments quantity if `barcode`
 // is already in the list (repeat scan of the same item), otherwise appends
-// a new row built from `info` (see resolveScannedItemInfo). Callers only add
-// a barcode after resolveScannedItemInfo found a real name (see
-// ScanListScanner/ScanListBuilderPage) — an unmatched barcode is never added
-// — but `info.name` still falls back to the barcode itself as a defensive
-// default, in case that invariant doesn't hold for a future caller.
-export function addScannedBarcode(items, barcode, info) {
+// a new { barcode, quantity: 1 } row. Callers pass the code returned by
+// resolveScannedBarcode, and only once it was found.
+export function addScannedBarcode(items, barcode) {
   const index = items.findIndex((item) => item.barcode === barcode);
-  if (index === -1) {
-    return [
-      ...items,
-      {
-        barcode,
-        name: info.name || barcode,
-        nameKo: info.nameKo || '',
-        category: info.category || '',
-        maker: info.maker || '',
-        salePrice: info.salePrice || '',
-        companyName: info.companyName || '',
-        quantity: 1,
-      },
-    ];
-  }
+  if (index === -1) return [...items, { barcode, quantity: 1 }];
   return items.map((item, i) => (i === index ? { ...item, quantity: item.quantity + 1 } : item));
 }
 
@@ -97,9 +101,9 @@ export function formatScanListBarcode(barcode) {
   return value.length <= 9 ? value : `${value.slice(0, 3)}...${value.slice(-6)}`;
 }
 
-export function updateItemQuantity(items, index, quantity) {
+export function updateItemQuantity(items, barcode, quantity) {
   const value = Math.max(1, Number(quantity) || 1);
-  return items.map((item, i) => (i === index ? { ...item, quantity: value } : item));
+  return items.map((item) => (item.barcode === barcode ? { ...item, quantity: value } : item));
 }
 
 // Batch reset for the builder's "set all quantities to 1" button — e.g. a
@@ -110,31 +114,83 @@ export function resetItemQuantities(items) {
   return items.map((item) => ({ ...item, quantity: 1 }));
 }
 
-export function removeItemAt(items, index) {
-  return items.filter((_, i) => i !== index);
-}
-
-// Delete-mode counterpart of addScannedBarcode: drops the whole row for
-// `barcode`. Returns the same `items` array (identity unchanged) when the
-// barcode isn't on the list, so callers can tell nothing was removed.
+// Drops the whole row for `barcode`. Returns the same `items` array
+// (identity unchanged) when the barcode isn't on the list, so callers can
+// tell nothing was removed.
 export function removeScannedBarcode(items, barcode) {
-  const index = items.findIndex((item) => item.barcode === barcode);
-  return index === -1 ? items : removeItemAt(items, index);
+  const next = items.filter((item) => item.barcode !== barcode);
+  return next.length === items.length ? items : next;
 }
 
-// Distinct, sorted company names actually present on the list — drives the
-// company filter's chip options. Items without a company (older lists saved
-// before companyName existed, or a barcode whose imported row had no inco
-// code) are excluded from the options rather than shown as a blank chip.
-export function uniqueScanListCompanies(items) {
-  return [...new Set(items.map((item) => item.companyName).filter(Boolean))].sort();
+// Which local-data columns scan lists show, as { key, label } in the
+// admin's order (see saveScanListDisplayColumns). Read from Firestore once
+// per session and cached; a failed read falls back to the defaults rather
+// than blocking the list.
+let displayColumnKeysPromise = null;
+
+export function fetchScanListDisplayColumnKeys() {
+  if (!displayColumnKeysPromise) {
+    displayColumnKeysPromise = settingsApi
+      .getSetting(SETTINGS_DOC_ID)
+      .then((data) => data?.displayColumns ?? null)
+      .catch((err) => {
+        console.error('[scan lists] failed to load display columns', err);
+        displayColumnKeysPromise = null;
+        return null;
+      });
+  }
+  return displayColumnKeysPromise;
 }
 
-// Default display/export order: name. Returns a new array — never mutates
-// `items` — so callers can freely diff it against the unsorted list (e.g. to
-// map a displayed row back to its real index; see ScanListBuilderPage).
-export function sortScanListItems(items) {
-  return [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+export async function saveScanListDisplayColumns(keys) {
+  await settingsApi.setSetting(SETTINGS_DOC_ID, { displayColumns: keys });
+  displayColumnKeysPromise = Promise.resolve(keys);
+}
+
+// Columns the admin can pick from: the local-data columns other than
+// barcode (always shown), from this device's copy when there is one,
+// otherwise from the published snapshot's metadata.
+export async function fetchScanListColumnOptions() {
+  const index = await getLocalBarcodeIndex();
+  const columns = index?.columns ?? (await fetchRemoteMeta())?.columns ?? [];
+  return columns.filter((c) => c.key !== 'barcode');
+}
+
+// `keys` null means no admin choice yet -> DEFAULT_DISPLAY_COLUMNS. Keys
+// the given columns don't have (e.g. dropped from a later publish) are
+// skipped.
+export function pickDisplayColumns(columns, keys) {
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  return (keys ?? DEFAULT_DISPLAY_COLUMNS).map((key) => byKey.get(key)).filter(Boolean);
+}
+
+// Everything a scan list view needs to show its items: the local-data
+// barcode index (null when this device has no copy) and the display
+// columns, as { key, label }.
+export async function loadScanListLookup() {
+  const [index, keys] = await Promise.all([getLocalBarcodeIndex(), fetchScanListDisplayColumnKeys()]);
+  return { index, columns: index ? pickDisplayColumns(index.columns, keys) : [] };
+}
+
+// Pure: each item plus its local-copy row as `row` (null when the barcode
+// isn't in the copy, or there's no copy). The source `items` are untouched.
+export function resolveScanListItems(items, index) {
+  return items.map((item) => ({ ...item, row: index ? (findLocalMatch(index, item.barcode)?.row ?? null) : null }));
+}
+
+// Distinct, sorted company names on the (resolved) list — drives the
+// company filter's chip options. Items without a company (not in the local
+// copy, or a copy published without companyName) are excluded from the
+// options rather than shown as a blank chip.
+export function uniqueScanListCompanies(resolvedItems) {
+  return [...new Set(resolvedItems.map((item) => item.row?.companyName).filter(Boolean))].sort();
+}
+
+// Default display/export order: product name, barcode for items without
+// one. Returns a new array — never mutates `resolvedItems`.
+export function sortScanListItems(resolvedItems) {
+  const key = (item) => scanListItemName(item.row, item.barcode);
+  return [...resolvedItems].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
 // First run of digits in `name`, as a number — or null if it has none. Used
@@ -169,24 +225,15 @@ export function sortScanLists(scanLists) {
 // Combines several scan lists' items into one array, summing quantities for
 // any barcode that appears in more than one source list — the point of
 // merging is to consolidate repeat items (e.g. two partial scans of the same
-// order), not to list them twice. A merged row's other fields (name,
-// category, companyName, ...) come from whichever source list it was first
-// encountered in; later sources only contribute their quantity.
+// order), not to list them twice.
 export function mergeScanListItems(itemLists) {
-  const merged = [];
-  const indexByBarcode = new Map();
+  const quantityByBarcode = new Map();
   for (const items of itemLists) {
-    for (const item of items) {
-      const existingIndex = indexByBarcode.get(item.barcode);
-      if (existingIndex === undefined) {
-        indexByBarcode.set(item.barcode, merged.length);
-        merged.push({ ...item });
-      } else {
-        merged[existingIndex] = { ...merged[existingIndex], quantity: merged[existingIndex].quantity + item.quantity };
-      }
+    for (const item of normalizeScanListItems(items)) {
+      quantityByBarcode.set(item.barcode, (quantityByBarcode.get(item.barcode) ?? 0) + item.quantity);
     }
   }
-  return merged;
+  return [...quantityByBarcode].map(([barcode, quantity]) => ({ barcode, quantity }));
 }
 
 export function fetchScanLists() {
@@ -208,7 +255,7 @@ export async function saveScanList({ id, name, tagId, tagLabel, items }, ownerId
     name: trimmedName,
     tagId: tagId || null,
     tagLabel: tagId ? (tagLabel ?? '') : '',
-    items: (items ?? []).filter((item) => item.quantity > 0),
+    items: normalizeScanListItems(items).filter((item) => item.quantity > 0),
   };
   if (id) {
     await scanListsApi.updateScanList(id, payload);
@@ -231,7 +278,7 @@ export function duplicateScanList(scanList, ownerId) {
       name: `${scanList.name} (copy)`,
       tagId: scanList.tagId,
       tagLabel: scanList.tagLabel,
-      items: scanList.items || [],
+      items: normalizeScanListItems(scanList.items),
     },
     ownerId
   );
@@ -271,7 +318,8 @@ export function loadScanListDraft(scanListId) {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
-    return draft.scanListId === (scanListId ?? null) ? draft : null;
+    if (draft.scanListId !== (scanListId ?? null)) return null;
+    return { ...draft, items: normalizeScanListItems(draft.items) };
   } catch {
     return null;
   }
@@ -285,26 +333,20 @@ export function clearScanListDraft() {
   }
 }
 
-// "barcode" -> "Barcode", "salePrice" -> "Sale Price".
-function keyToColumnLabel(key) {
-  return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
-}
-
 // Lazy-loads @e965/xlsx (same pattern as dataService.parseExcelFile) and
-// triggers a browser download of the list as a single-sheet workbook. Works
-// on an in-progress (not yet saved) list just as well as a saved one, since
-// it only reads `name`/`items` off whatever object it's given. Columns are
-// derived from whatever keys the items actually carry (rather than a fixed
-// list here) so a new field added to addScannedBarcode shows up in the
-// export automatically. The key set is taken across all items, not just the
-// first, since an older saved list's items may be missing a field a newer
-// one has (e.g. category/maker/salePrice, added after that list was saved).
+// triggers a browser download of the list as a single-sheet workbook:
+// barcode, the admin's display columns (under their spreadsheet headers,
+// looked up from this device's local copy), then quantity. Works on an
+// in-progress (not yet saved) list just as well as a saved one, since it
+// only reads `name`/`items` off whatever object it's given.
 export async function exportScanListToExcel(scanList) {
-  const XLSX = await import('@e965/xlsx');
-  const keys = [...new Set(scanList.items.flatMap((item) => Object.keys(item)))];
-  const rows = scanList.items.map((item) =>
-    Object.fromEntries(keys.map((key) => [keyToColumnLabel(key), item[key] ?? '']))
-  );
+  const [XLSX, { index, columns }] = await Promise.all([import('@e965/xlsx'), loadScanListLookup()]);
+  const items = sortScanListItems(resolveScanListItems(normalizeScanListItems(scanList.items), index));
+  const rows = items.map((item) => ({
+    [t('scanLists.barcodeCol')]: item.barcode,
+    ...Object.fromEntries(columns.map((c) => [c.label, item.row?.[c.key] ?? ''])),
+    [t('scanLists.quantityCol')]: item.quantity,
+  }));
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'Items');

@@ -91,6 +91,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Admin-managed app settings, one doc per setting (e.g. `scanList`: which
+    // local-data columns scan lists display — see
+    // components/admin/ScanListColumnsForm.jsx). Any active user reads them;
+    // only admins change them.
+    match /settings/{docId} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
     // Code -> company name map, managed by admins on /admin (see
     // components/admin/CompaniesForm.jsx) — any active user can read it,
     // but only admins can add/edit/remove an entry. Auto-ID doc, with `code`

@@ -16,15 +16,22 @@ function isImportedRow(row) {
   return !!(row?.product || row?.salePrice);
 }
 
+// The codes to try, in order, for a scanned/typed barcode: as given, then
+// zero-prefixed, since a common UPC-A (12-digit) / EAN-13 (13-digit,
+// leading "0") mismatch means the code the camera reads and the code the
+// import stored can differ by exactly that leading zero. Empty for a blank
+// barcode.
+export function barcodeCandidates(barcode) {
+  const trimmed = String(barcode ?? '').trim();
+  return trimmed ? [trimmed, `0${trimmed}`] : [];
+}
+
 // Returns { row, source } — `source` is 'local' or 'firestore', whichever
 // was searched; `row` is null on a miss. A miss retries once with a
-// zero-prefixed barcode, since a common UPC-A (12-digit) / EAN-13 (13-digit,
-// leading "0") mismatch means the code the camera reads and the code the
-// import stored can differ by exactly that leading zero.
+// zero-prefixed barcode — see barcodeCandidates.
 export async function lookupBarcode(barcode) {
-  const trimmed = String(barcode ?? '').trim();
-  if (!trimmed) return { row: null, source: null };
-  const candidates = [trimmed, `0${trimmed}`];
+  const candidates = barcodeCandidates(barcode);
+  if (candidates.length === 0) return { row: null, source: null };
 
   const localIndex = await getLocalBarcodeIndex();
   if (localIndex) {

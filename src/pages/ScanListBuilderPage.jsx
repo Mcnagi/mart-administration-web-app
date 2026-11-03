@@ -9,11 +9,15 @@ import {
   saveScanList,
   addScannedBarcode,
   removeScannedBarcode,
-  resolveScannedItemInfo,
+  resolveScannedBarcode,
+  findScanListItem,
+  scanListItemName,
+  normalizeScanListItems,
+  loadScanListLookup,
+  resolveScanListItems,
   formatScanListBarcode,
   updateItemQuantity,
   resetItemQuantities,
-  removeItemAt,
   uniqueScanListCompanies,
   sortScanListItems,
   exportScanListToExcel,
@@ -59,6 +63,9 @@ export default function ScanListBuilderPage() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(isEditing);
+  // { index, columns } — the local-data copy the items are looked up in,
+  // and the admin's display columns (see loadScanListLookup).
+  const [lookup, setLookup] = useState(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -70,15 +77,20 @@ export default function ScanListBuilderPage() {
   // adding it (a barcode not on the list is silently ignored).
   const [deleteMode, setDeleteMode] = useState(false);
 
-  const companyOptions = useMemo(() => uniqueScanListCompanies(items), [items]);
+  // Items only store barcode + quantity; everything else shown comes from
+  // the local-data copy, looked up on every change.
+  const resolvedItems = useMemo(() => resolveScanListItems(items, lookup?.index ?? null), [items, lookup]);
+  const companyOptions = useMemo(() => uniqueScanListCompanies(resolvedItems), [resolvedItems]);
 
-  // Always sorted company -> category -> name, whether or not a company
-  // filter is active, so the table and any export reflect the same order.
+  // Always sorted by name, whether or not a company filter is active, so
+  // the table and any export reflect the same order.
   const visibleItems = useMemo(() => {
     const filtered =
-      selectedCompanies.size === 0 ? items : items.filter((item) => selectedCompanies.has(item.companyName || ''));
+      selectedCompanies.size === 0
+        ? resolvedItems
+        : resolvedItems.filter((item) => selectedCompanies.has(item.row?.companyName || ''));
     return sortScanListItems(filtered);
-  }, [items, selectedCompanies]);
+  }, [resolvedItems, selectedCompanies]);
 
   function toggleCompanyFilter(company) {
     setSelectedCompanies((prev) => {
@@ -128,6 +140,16 @@ export default function ScanListBuilderPage() {
 
   useEffect(() => {
     let cancelled = false;
+    loadScanListLookup()
+      .then((data) => !cancelled && setLookup(data))
+      .catch(() => !cancelled && setLookup({ index: null, columns: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     fetchScanListTags()
       .then((data) => !cancelled && setTags(data))
       .catch(() => {});
@@ -153,7 +175,7 @@ export default function ScanListBuilderPage() {
         setName(found.name || '');
         setTagId(found.tagId || '');
         setTagLabel(found.tagLabel || '');
-        setItems(found.items || []);
+        setItems(normalizeScanListItems(found.items));
       })
       .catch((err) => !cancelled && setError(err.message || t('scanLists.errorLoad')))
       .finally(() => !cancelled && setLoading(false));
@@ -171,34 +193,39 @@ export default function ScanListBuilderPage() {
     saveScanListDraft(scanListId ?? null, { name, tagId, tagLabel, items });
   }, [scanListId, name, tagId, tagLabel, items, loading]);
 
-  // Same resolve-then-add rule as ScanListScanner.handleDetected: a barcode
-  // with no match in the imported data collection isn't added. Returns
-  // whether it was added.
+  // Same rule as ScanListScanner.handleDetected: every scan is checked
+  // against the local-data copy, and a barcode it doesn't have isn't added.
+  // Returns whether the scan was handled (so the manual field can clear).
   async function addBarcode(barcode) {
     setError('');
-    if (deleteMode) return removeBarcode(barcode);
-    const info = await resolveScannedItemInfo(barcode).catch(() => null);
-    if (!info?.name) {
+    const match = await resolveScannedBarcode(barcode).catch(() => ({ status: 'notFound' }));
+    const name = match.status === 'found' ? scanListItemName(match.row, barcode) : barcode;
+    if (deleteMode) return removeBarcode(barcode, name);
+    if (match.status === 'noLocalData') {
+      setError(t('scanLists.noLocalData'));
+      return false;
+    }
+    if (match.status !== 'found') {
       setError(t('scanLists.itemNotFound', { barcode }));
       return false;
     }
-    const nextItems = addScannedBarcode(itemsRef.current, barcode, info);
+    const nextItems = addScannedBarcode(itemsRef.current, match.barcode);
     itemsRef.current = nextItems;
     setItems(nextItems);
-    const added = nextItems.find((item) => item.barcode === barcode);
-    setToast(t('scanLists.itemAdded', { name: added.name, qty: added.quantity }));
+    const added = nextItems.find((item) => item.barcode === match.barcode);
+    setToast(t('scanLists.itemAdded', { name, qty: added.quantity }));
     return true;
   }
 
   // Delete-mode counterpart of addBarcode. Always reports success so the
   // manual field clears either way — a barcode not on the list is a no-op.
-  function removeBarcode(barcode) {
-    const removed = itemsRef.current.find((item) => item.barcode === barcode);
+  function removeBarcode(barcode, name) {
+    const removed = findScanListItem(itemsRef.current, barcode);
     if (removed) {
-      const nextItems = removeScannedBarcode(itemsRef.current, barcode);
+      const nextItems = removeScannedBarcode(itemsRef.current, removed.barcode);
       itemsRef.current = nextItems;
       setItems(nextItems);
-      setToast(t('scanLists.itemRemoved', { name: removed.name }));
+      setToast(t('scanLists.itemRemoved', { name }));
     }
     return true;
   }
@@ -258,7 +285,7 @@ export default function ScanListBuilderPage() {
     }
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || lookup === null) return <LoadingSpinner />;
 
   const noItems = items.length === 0;
 
@@ -325,6 +352,7 @@ export default function ScanListBuilderPage() {
             {t('scanLists.deleteModeHint')}
           </div>
         )}
+        {!lookup.index && <div className="form-error">{t('scanLists.noLocalData')}</div>}
 
         {noItems ? (
           <p className="import-hint">{t('scanLists.emptyBuilder')}</p>
@@ -413,55 +441,50 @@ export default function ScanListBuilderPage() {
                         />
                       </th>
                     )}
-                    <th>{t('scanLists.nameCol')}</th>
-                    <th>{t('scanLists.nameKoCol')}</th>
-                    <th>{t('scanLists.categoryCol')}</th>
-                    <th>{t('scanLists.companyCol')}</th>
+                    {lookup.columns.map((col) => (
+                      <th key={col.key}>{col.label}</th>
+                    ))}
                     <th>{t('scanLists.barcodeCol')}</th>
                     <th>{t('scanLists.quantityCol')}</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleItems.map((item) => {
-                    const realIndex = items.indexOf(item);
-                    return (
-                      <tr key={item.barcode}>
-                        {selecting && (
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={selectedBarcodes.has(item.barcode)}
-                              onChange={() => toggleBarcodeSelected(item.barcode)}
-                              aria-label={t('scanLists.selectRow', { name: item.name })}
-                            />
-                          </td>
-                        )}
-                        <td>{item.name}</td>
-                        <td>{item.nameKo}</td>
-                        <td>{item.category}</td>
-                        <td>{item.companyName}</td>
-                        <td title={item.barcode}>{formatScanListBarcode(item.barcode)}</td>
+                  {visibleItems.map((item) => (
+                    <tr key={item.barcode} className={item.row ? '' : 'scan-list-row-missing'}>
+                      {selecting && (
                         <td>
                           <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => setItems(updateItemQuantity(items, realIndex, e.target.value))}
+                            type="checkbox"
+                            checked={selectedBarcodes.has(item.barcode)}
+                            onChange={() => toggleBarcodeSelected(item.barcode)}
+                            aria-label={t('scanLists.selectRow', { name: scanListItemName(item.row, item.barcode) })}
                           />
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-link btn-link-danger"
-                            onClick={() => setItems(removeItemAt(items, realIndex))}
-                          >
-                            {t('scanLists.removeRow')}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      )}
+                      {lookup.columns.map((col) => (
+                        <td key={col.key}>{item.row?.[col.key] ?? ''}</td>
+                      ))}
+                      <td title={item.barcode}>{formatScanListBarcode(item.barcode)}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => setItems(updateItemQuantity(items, item.barcode, e.target.value))}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-link btn-link-danger"
+                          onClick={() => setItems(removeScannedBarcode(items, item.barcode))}
+                        >
+                          {t('scanLists.removeRow')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -481,7 +504,7 @@ export default function ScanListBuilderPage() {
             <button
               type="button"
               className="btn-outline"
-              onClick={() => handleExport(sortScanListItems(items))}
+              onClick={() => handleExport(items)}
               disabled={noItems || exporting}
             >
               {exporting ? t('scanLists.exporting') : t('scanLists.exportAll')}

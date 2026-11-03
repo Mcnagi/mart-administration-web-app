@@ -5,7 +5,13 @@ import { useRef, useState } from 'react';
 import BarcodeScanner from './BarcodeScanner';
 import Toast from './Toast';
 import { useTranslation } from '../context/LanguageContext';
-import { addScannedBarcode, removeScannedBarcode, resolveScannedItemInfo } from '../services/scanListService';
+import {
+  addScannedBarcode,
+  removeScannedBarcode,
+  resolveScannedBarcode,
+  findScanListItem,
+  scanListItemName,
+} from '../services/scanListService';
 
 // Ignores a re-detection of the same still-in-frame barcode for this long —
 // zxing's callback can refire on every frame while a code stays visible,
@@ -29,31 +35,36 @@ export default function ScanListScanner({ items, deleteMode = false, onItemAdded
     }
     lastScan.current = { barcode, at: now };
 
+    // Every scan is checked against the local-data copy — for the name in
+    // the toast, and (when adding) to only ever add a barcode it has.
+    const match = await resolveScannedBarcode(barcode).catch(() => ({ status: 'notFound' }));
+    const name = match.status === 'found' ? scanListItemName(match.row, barcode) : barcode;
+
     // Delete mode: drop the barcode's row if it's on the list, otherwise do
-    // nothing — no lookup needed, the row already holds the name.
+    // nothing.
     if (deleteMode) {
-      const removed = itemsRef.current.find((item) => item.barcode === barcode);
+      const removed = findScanListItem(itemsRef.current, barcode);
       if (!removed) return;
-      const nextItems = removeScannedBarcode(itemsRef.current, barcode);
+      const nextItems = removeScannedBarcode(itemsRef.current, removed.barcode);
       itemsRef.current = nextItems;
       onItemAdded(nextItems);
-      setToast(t('scanLists.itemRemoved', { name: removed.name }));
+      setToast(t('scanLists.itemRemoved', { name }));
       return;
     }
 
-    // A barcode with no match in our own imported data collection isn't
-    // added — see resolveScannedItemInfo — so the row (and its toast) only
-    // ever shows a real resolved name, never the barcode as a placeholder.
-    const info = await resolveScannedItemInfo(barcode).catch(() => null);
-    if (!info?.name) {
+    if (match.status === 'noLocalData') {
+      setToast(t('scanLists.noLocalData'));
+      return;
+    }
+    if (match.status !== 'found') {
       setToast(t('scanLists.itemNotFound', { barcode }));
       return;
     }
-    const nextItems = addScannedBarcode(itemsRef.current, barcode, info);
+    const nextItems = addScannedBarcode(itemsRef.current, match.barcode);
     itemsRef.current = nextItems;
     onItemAdded(nextItems);
-    const added = nextItems.find((item) => item.barcode === barcode);
-    setToast(t('scanLists.itemAdded', { name: added.name, qty: added.quantity }));
+    const added = nextItems.find((item) => item.barcode === match.barcode);
+    setToast(t('scanLists.itemAdded', { name, qty: added.quantity }));
   }
 
   return (

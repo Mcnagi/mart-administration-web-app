@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CreateUserForm from '../components/admin/CreateUserForm';
 import ImportDataForm from '../components/admin/ImportDataForm';
 import ScanListTagsForm from '../components/admin/ScanListTagsForm';
+import ScanListColumnsForm from '../components/admin/ScanListColumnsForm';
 import CompaniesForm from '../components/admin/CompaniesForm';
 import UserList from '../components/admin/UserList';
 import { scheduleIdle } from '../utils/idleSchedule';
@@ -44,6 +45,7 @@ export default function AdminUsersPage() {
   const sections = [
     { id: 'admin-import', label: t('admin.importTitle') },
     { id: 'admin-scan-tags', label: t('admin.scanListTagsTitle') },
+    { id: 'admin-scan-columns', label: t('admin.scanListColumnsTitle') },
     { id: 'admin-companies', label: t('admin.companiesTitle') },
     { id: 'admin-users', label: t('admin.usersTitle') },
     { id: 'admin-create-user', label: t('admin.createUserTitle') },
@@ -67,6 +69,10 @@ export default function AdminUsersPage() {
 
           <section id="admin-scan-tags" className="admin-section">
             <ScanListTagsForm />
+          </section>
+
+          <section id="admin-scan-columns" className="admin-section">
+            <ScanListColumnsForm />
           </section>
 
           <section id="admin-companies" className="admin-section">

@@ -110,9 +110,10 @@ export { loadLocalData };
 
 // Barcode -> row lookup over the on-device copy, built once from IndexedDB
 // and reused until the copy is re-downloaded or cleared (both reset it
-// above). Resolves to null when there's no copy, or the copy was published
-// without the barcode column — callers then fall back to Firestore (see
-// services/productLookupService.js).
+// above). `columns` is the copy's { key, label } list, for callers that show
+// fields under their spreadsheet headers. Resolves to null when there's no
+// copy, or the copy was published without the barcode column — callers then
+// fall back to Firestore (see services/productLookupService.js).
 let barcodeIndexPromise = null;
 
 async function buildBarcodeIndex() {
@@ -123,7 +124,7 @@ async function buildBarcodeIndex() {
   if (barcodeIndex === -1) return null;
   const rowsByBarcode = new Map();
   data.rows.forEach((values) => rowsByBarcode.set(String(values[barcodeIndex]).trim(), values));
-  return { keys, rowsByBarcode };
+  return { keys, columns: data.columns, rowsByBarcode };
 }
 
 export function getLocalBarcodeIndex() {

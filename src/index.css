@@ -935,6 +935,26 @@ textarea:focus {
   overflow-y: auto;
 }
 
+/* A saved barcode this device's local-data copy doesn't have (or no copy
+   at all) — only the barcode and quantity can be shown. */
+.scan-list-row-missing td {
+  color: var(--text-muted);
+}
+
+/* Same column/gap layout as .item-form, so the .import-hint lines inside
+   (whose -8px top margin assumes that gap) don't overlap the Save button. */
+.admin-columns-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-column-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
 .scan-list-manual-row {
   display: flex;
   gap: 8px;
