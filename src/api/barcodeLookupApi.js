@@ -1,9 +1,9 @@
-// Fallback product photo lookup for barcodes that aren't in Firestore's
-// imported `data` collection (see api/dataApi.js). Backed by Open Food
-// Facts — a free, public product database with no API key required. See
+// Fallback product photo lookup for barcodes that aren't in the local-data
+// copy (see services/productLookupService.js). Backed by Open Food Facts — a
+// free, public product database with no API key required. See
 // https://world.openfoodfacts.org/data for the API. Only the photo is used
 // from this source — name/brand/category/quantity are not, since those are
-// expected to come from our own imported data.
+// expected to come from our own local data.
 const OFF_PRODUCT_ENDPOINT = 'https://world.openfoodfacts.org/api/v2/product';
 
 // Returns the product's image URL from Open Food Facts, or null if the

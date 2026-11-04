@@ -35,8 +35,7 @@ export async function deleteCompany(id) {
 
 // Bulk create/update from a parsed CSV/Excel file (see
 // companyService.parseCompaniesFile), matched against the full existing list
-// (already in memory, so no per-row read is needed — unlike the much larger
-// `data` collection's upsertRowsByBarcode). A row whose code already exists
+// (already in memory, so no per-row read is needed). A row whose code already exists
 // with the same name is left untouched; otherwise it's created or updated in
 // batches of BATCH_SIZE.
 export async function upsertCompaniesByCode(existingCompanies, rows) {

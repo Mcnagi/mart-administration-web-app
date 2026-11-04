@@ -1,5 +1,5 @@
-// Resolves the company name for an imported data row's IncoCode column (see
-// services/dataService.parseExcelFile). An IncoCode looks like "1-0001":
+// Resolves the company name for a spreadsheet row's IncoCode column (see
+// services/spreadsheetService.parseExcelFile). An IncoCode looks like "1-0001":
 // the part after the dash is the company code registered in the
 // `companies` collection (see services/companyService) — the part before
 // the dash isn't a company code and is ignored here. Returns null when

@@ -13,9 +13,7 @@ import {
   requestPersistentStorage,
 } from '../utils/localDataStore';
 
-// Parsing is identical to the admin data import — same header mapping,
-// encoding fixes, barcode dedupe and IncoCode -> companyName lookup.
-export { parseExcelFile } from './dataService';
+export { parseExcelFile } from './spreadsheetService';
 
 // `columns` is the admin's selection ({ key, label } from parseExcelFile).
 export function encodeRows(rows, columns, onProgress) {
@@ -113,7 +111,7 @@ export { loadLocalData };
 // above). `columns` is the copy's { key, label } list, for callers that show
 // fields under their spreadsheet headers. Resolves to null when there's no
 // copy, or the copy was published without the barcode column — callers then
-// fall back to Firestore (see services/productLookupService.js).
+// report that there's no local data (see services/productLookupService.js).
 let barcodeIndexPromise = null;
 
 async function buildBarcodeIndex() {
@@ -138,7 +136,7 @@ export function getLocalBarcodeIndex() {
   return barcodeIndexPromise;
 }
 
-// The row for `barcode` as an object keyed like a `data` collection doc
+// The row for `barcode` as an object keyed by the published columns
 // (product, product2, salePrice, ...), or null when it isn't in the copy.
 export function findLocalRow(index, barcode) {
   const values = index.rowsByBarcode.get(barcode);

@@ -4,7 +4,6 @@ import { useTranslation } from '../context/LanguageContext';
 import * as userService from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CreateUserForm from '../components/admin/CreateUserForm';
-import ImportDataForm from '../components/admin/ImportDataForm';
 import ItemListTagsForm from '../components/admin/ItemListTagsForm';
 import ItemListColumnsForm from '../components/admin/ItemListColumnsForm';
 import CompaniesForm from '../components/admin/CompaniesForm';
@@ -43,7 +42,6 @@ export default function AdminUsersPage() {
   if (users === null) return <LoadingSpinner />;
 
   const sections = [
-    { id: 'admin-import', label: t('admin.importTitle') },
     { id: 'admin-scan-tags', label: t('admin.itemListTagsTitle') },
     { id: 'admin-scan-columns', label: t('admin.itemListColumnsTitle') },
     { id: 'admin-companies', label: t('admin.companiesTitle') },
@@ -63,10 +61,6 @@ export default function AdminUsersPage() {
         </nav>
 
         <div className="admin-sections">
-          <section id="admin-import" className="admin-section">
-            <ImportDataForm />
-          </section>
-
           <section id="admin-scan-tags" className="admin-section">
             <ItemListTagsForm />
           </section>

@@ -6,9 +6,9 @@ import LoadingSpinner from '../LoadingSpinner';
 
 const PREVIEW_ROW_COUNT = 5;
 
-// Admin section of the local-data page: parse a spreadsheet the same way
-// the data import does (incl. IncoCode -> company name), pick which columns
-// to keep, encode the rows into an array of long strings packed into as few
+// Admin section of the local-data page: parse a spreadsheet (see
+// services/spreadsheetService.js, incl. IncoCode -> company name), pick
+// which columns to keep, encode the rows into an array of long strings packed into as few
 // Firestore docs as fit under the 1 MiB limit, then publish them for every
 // user to download.
 export default function LocalDataUploadForm({ onPublished }) {

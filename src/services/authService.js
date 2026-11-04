@@ -5,7 +5,6 @@ import * as usersApi from '../api/usersApi';
 import { clearLocalData } from './localDataService';
 import { clearItemListDraft } from './itemListService';
 import { clearCompanyNameMap } from '../utils/companyNameCache';
-import { clearPendingRows } from '../utils/pendingImport';
 import { clearCachedFilters } from '../utils/itemsFilterCache';
 import { clearCachedScroll } from '../utils/itemsScrollCache';
 import { t } from '../i18n/i18n';
@@ -13,11 +12,11 @@ import { t } from '../i18n/i18n';
 // Signs out and wipes everything this app keeps on the device for the
 // signed-in user, so the next person to sign in here starts clean: the
 // downloaded local-data copy (IndexedDB), the unsaved item list draft, the
-// company-name cache, an admin's unfinished import rows, and the Items
-// page's remembered filters/scroll. Language is kept — it's a choice for
-// the device, not for the user. Used for every sign-out, whether the user
-// logged out or their account was disabled or removed. Clearing runs after
-// signing out, and a failure is only logged — it must never block that.
+// company-name cache, and the Items page's remembered filters/scroll.
+// Language is kept — it's a choice for the device, not for the user. Used
+// for every sign-out, whether the user logged out or their account was
+// disabled or removed. Clearing runs after signing out, and a failure is
+// only logged — it must never block that.
 //
 // A profile read that *failed* (e.g. offline) is not proof the account was
 // removed, so callers pass that case to authApi.signOutCurrentUser() alone
@@ -28,7 +27,6 @@ async function signOutAndClearDevice() {
   try {
     clearItemListDraft();
     clearCompanyNameMap();
-    clearPendingRows();
     clearCachedFilters();
     clearCachedScroll();
     await clearLocalData();

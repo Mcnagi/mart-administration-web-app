@@ -12,10 +12,10 @@ export async function fetchCompanies() {
   return companies;
 }
 
-// Code -> name lookup for the data import's IncoCode column (see
-// dataService.parseExcelFile). Reads the local cache first (see
+// Code -> name lookup for a spreadsheet's IncoCode column (see
+// spreadsheetService.parseExcelFile). Reads the local cache first (see
 // utils/companyNameCache.js), which is refreshed on every fetchCompanies()
-// call, so importing data doesn't need its own Firestore read just to
+// call, so parsing a spreadsheet doesn't need its own Firestore read just to
 // resolve names. Falls back to a live fetch only when nothing's cached yet.
 export async function getCompanyNameMap() {
   const cached = loadCompanyNameMap();
@@ -50,7 +50,7 @@ export function removeCompany(id) {
 // and returns validated, deduped rows for the admin to preview before
 // uploadCompanies writes anything. Rows with a non-positive/non-integer code
 // or a blank name are skipped and counted, not errored — mirrors
-// dataService.parseExcelFile's approach for the same reason: a stray
+// spreadsheetService.parseExcelFile's approach for the same reason: a stray
 // incomplete row in an exported sheet is the common case, not a mistake.
 export async function parseCompaniesFile(file) {
   const XLSX = await import('@e965/xlsx');

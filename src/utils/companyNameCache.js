@@ -1,6 +1,6 @@
 // Client-side cache of the `companies` code -> name map (see
 // services/companyService.js), so resolving IncoCode -> company name during
-// a data import (dataService.parseExcelFile) doesn't need its own Firestore
+// spreadsheet parsing (spreadsheetService.parseExcelFile) doesn't need its own Firestore
 // read every time a file is selected. Refreshed as a side effect of
 // companyService.fetchCompanies() — i.e. whenever the admin opens or edits
 // the Companies list — so it stays reasonably current without a TTL.

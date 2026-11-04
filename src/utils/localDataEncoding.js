@@ -6,9 +6,9 @@
 //
 // Each row is encoded as a JSON array of its values (column order is stored
 // once, separately, rather than repeating every key on every row), and rows
-// are joined with the ASCII record separator — same delimiter trick as
-// utils/pendingImport.js: JSON.stringify always escapes control characters
-// inside strings, so it can never appear inside an encoded row.
+// are joined with the ASCII record separator: JSON.stringify always escapes
+// control characters inside strings, so it can never appear inside an
+// encoded row.
 const ROW_DELIMITER = '\u001e';
 
 // Firestore caps a whole document at 1 MiB (1,048,576 bytes), array fields
@@ -50,7 +50,7 @@ export function encodeRow(row, columnKeys) {
   return JSON.stringify(columnKeys.map((key) => row[key] ?? ''));
 }
 
-// Encodes `rows` (objects, as returned by dataService.parseExcelFile) into
+// Encodes `rows` (objects, as returned by spreadsheetService.parseExcelFile) into
 // strings of at most `maxBytes` UTF-8 bytes each, keeping only `columnKeys`.
 // A row is never split across two strings. `onProgress` is called
 // periodically with { rowsEncoded, totalRows, chunkCount, currentChunkBytes }

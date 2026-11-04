@@ -2,7 +2,6 @@
 // orchestrating the api + image services. Views should call only this file,
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
-import { savePhotoForBarcode } from '../api/dataApi';
 import { getExternalProductImageUrl, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { lookupBarcode, lookupBarcodeRow } from './productLookupService';
@@ -106,27 +105,23 @@ export async function fetchItemById(itemId) {
 }
 
 // Drives the item form's barcode search button and scan: looks the barcode
-// up via productLookupService (the on-device copy when there is one, else
-// the imported `data` collection), and works out what (if anything) needs
-// to happen next for the product photo — a cached photo/candidate list on
-// the Firestore row or, when nothing is on file, a best-effort photo
-// suggestion from Open Food Facts (name/brand/category are not looked up
-// externally — only the photo). The on-device copy carries no photos, so a
-// local hit never shows a cached one. The caller (ItemFormPage) owns all
-// UI/loading state; this just makes the found/not-found decision and hands
-// back what to show.
+// up in this device's local-data copy (see productLookupService) and, when
+// it isn't there, offers a best-effort photo suggestion from Open Food Facts
+// (name/brand/category are not looked up externally — only the photo). The
+// caller (ItemFormPage) owns all UI/loading state; this just makes the
+// found/not-found decision and hands back what to show. `status` is
+// 'found', 'notFound', or 'noLocalData' when this device has no copy.
 export async function searchProductByBarcode(barcode) {
   const trimmed = (barcode ?? '').trim();
   if (!trimmed) return null;
 
-  const { row, legacyRow } = await lookupBarcode(trimmed);
+  const { row, noLocalData } = await lookupBarcode(trimmed);
+  if (noLocalData) return { status: 'noLocalData', externalImageUrl: null };
   if (row) {
     return {
       status: 'found',
       searchResult: row,
       category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
-      cachedPhotos: row.photos?.length ? row.photos : null,
-      canonicalPhoto: row.photo || null,
       externalImageUrl: null,
     };
   }
@@ -139,8 +134,6 @@ export async function searchProductByBarcode(barcode) {
   const externalImageUrl = await getExternalProductImageUrl(trimmed).catch(() => null);
   return {
     status: 'notFound',
-    cachedPhotos: legacyRow?.photos?.length ? legacyRow.photos : null,
-    canonicalPhoto: legacyRow?.photo || null,
     // Caller only auto-fills this if the user hasn't already picked a photo —
     // never clobber a manually chosen or existing (edit-mode) photo.
     externalImageUrl,
@@ -165,7 +158,7 @@ export function fetchDataRowForBarcode(barcode) {
 }
 
 // A barcode item doesn't store its own name (see saveItem below), so the
-// items list resolves one for display from the imported data (same lookup
+// items list resolves one for display from the local data (same lookup
 // ItemFormPage's search uses) — best-effort, since this backs a
 // background display fill-in, not a user-initiated search, so a failure just
 // means no name rather than a surfaced error.
@@ -202,11 +195,8 @@ export async function saveItem(
 
   // Every field is written onto the item itself — including name/category,
   // even when a barcode search filled them in — so the items list can
-  // render a card straight off its own doc. The alternative (leaving them
-  // off and re-resolving from the `data` collection at read time, the way
-  // resolveProductName used to work) would trade one write here for one
-  // extra Firestore read per barcode item on every list load/subscription,
-  // which is far more expensive at read-heavy list-view scale.
+  // render a card straight off its own doc rather than re-resolving them
+  // on every list load.
   const payload = {
     name: (name ?? '').trim(),
     category: (category ?? '').trim(),
@@ -217,14 +207,6 @@ export async function saveItem(
     barcode: trimmedBarcode,
     photoBase64,
   };
-
-  // Best-effort: also cache the photo onto the shared `data/{barcode}` doc,
-  // so the next item scanned with this barcode already has it attached
-  // (see ItemFormPage's "use a different photo" flow). Failure here doesn't
-  // block saving the item itself.
-  if (trimmedBarcode && photoBase64) {
-    savePhotoForBarcode(trimmedBarcode, photoBase64).catch(() => {});
-  }
 
   if (id) {
     await itemsApi.updateItem(id, payload);

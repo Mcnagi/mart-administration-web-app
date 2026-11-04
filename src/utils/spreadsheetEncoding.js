@@ -1,8 +1,7 @@
-// Format-detection and encoding fixes shared by the real Firestore import
-// path (src/services/dataService.js) and the standalone Node scripts
-// (scripts/lib/spreadsheetImport.mjs), so both decode a file identically —
-// no dependency on @e965/xlsx or cptable here, so this stays free to import
-// anywhere without pulling either into a bundle.
+// Format-detection and encoding fixes for spreadsheet parsing (see
+// services/spreadsheetService.js) — no dependency on @e965/xlsx or cptable
+// here, so this stays free to import anywhere without pulling either into a
+// bundle.
 
 // BIFF "BOF" (Beginning Of File) record IDs across versions — 0x0009 (BIFF2),
 // 0x0209 (BIFF3), 0x0409 (BIFF4), 0x0809 (BIFF5/BIFF7, and raw BIFF8). Some

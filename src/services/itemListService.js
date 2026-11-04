@@ -335,7 +335,7 @@ export function clearItemListDraft() {
   }
 }
 
-// Lazy-loads @e965/xlsx (same pattern as dataService.parseExcelFile) and
+// Lazy-loads @e965/xlsx (same pattern as spreadsheetService.parseExcelFile) and
 // triggers a browser download of the list as a single-sheet workbook:
 // barcode, the admin's display columns (under their spreadsheet headers,
 // looked up from this device's local copy), then quantity. Works on an

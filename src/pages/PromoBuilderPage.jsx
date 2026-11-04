@@ -79,8 +79,8 @@ export default function PromoBuilderPage() {
         .then(async (item) => {
           if (cancelled || !item) return;
           // The item itself only carries a single name and no sale price —
-          // both names and the sale price live on the imported `data`
-          // collection row for its barcode, so pull that in too. The item's
+          // both names and the sale price live on the local-data row for
+          // its barcode, so pull that in too. The item's
           // own photo (if any) still wins over the data row's, since it may
           // have been picked/replaced specifically for this item.
           const dataRow = await fetchDataRowForBarcode(item.barcode);

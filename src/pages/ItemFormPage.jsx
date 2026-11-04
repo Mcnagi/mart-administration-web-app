@@ -43,15 +43,6 @@ export default function ItemFormPage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [existingPhotoBase64, setExistingPhotoBase64] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
-  // True when the shown photo is the canonical one already on file in the
-  // `data` collection (searchProductByBarcode's canonicalPhoto) — that photo
-  // is shared across every item with this barcode, so this form shouldn't
-  // offer to replace it.
-  const [photoFromDataCollection, setPhotoFromDataCollection] = useState(false);
-  // Candidates come only from a legacy cached `photos` field on the data
-  // doc (see itemService.searchProductByBarcode) — nothing searches for new
-  // ones anymore (the photo-search feature was removed).
-  const [photoCandidates, setPhotoCandidates] = useState([]);
   const [uploaderName, setUploaderName] = useState('');
   const [uploadedAt, setUploadedAt] = useState(null);
   const [loading, setLoading] = useState(isEditing);
@@ -114,8 +105,6 @@ export default function ItemFormPage() {
     if (!file) return;
     setPhotoFile(file);
     setPreviewUrl(URL.createObjectURL(file));
-    setPhotoCandidates([]);
-    setPhotoFromDataCollection(false);
   }
 
   function handleBarcodeDetected(code) {
@@ -129,14 +118,6 @@ export default function ItemFormPage() {
   // rather than Enter submitting the whole form.
   const { inputProps: barcodeInputProps } = useScanInput(handleSearch);
 
-  function handlePickCandidate(base64) {
-    setPhotoFile(null);
-    setExistingPhotoBase64(base64);
-    setPreviewUrl(base64);
-    setPhotoCandidates([]);
-    setPhotoFromDataCollection(false);
-  }
-
   async function handleSearch(codeOverride) {
     // The Search button's onClick passes it directly, so a click event may
     // arrive here too — only a real string override (from the scan handoff
@@ -147,7 +128,6 @@ export default function ItemFormPage() {
     setSearchResult(null);
     setSearchStatus('');
     setSearchErrorMessage('');
-    setPhotoCandidates([]);
     // A new search means a (possibly different) product, so whatever photo
     // was showing before — manually picked, from a prior search, or the
     // item's existing saved photo — no longer necessarily belongs to it.
@@ -156,7 +136,6 @@ export default function ItemFormPage() {
     setPhotoFile(null);
     setExistingPhotoBase64('');
     setPreviewUrl('');
-    setPhotoFromDataCollection(false);
     try {
       const result = await searchProductByBarcode(trimmed);
       if (!result) {
@@ -168,14 +147,7 @@ export default function ItemFormPage() {
         setSearchResult(result.searchResult);
         setCategory(result.category || '');
       }
-      if (result.cachedPhotos) {
-        setPhotoCandidates(result.cachedPhotos);
-      }
-      if (result.canonicalPhoto) {
-        setExistingPhotoBase64(result.canonicalPhoto);
-        setPreviewUrl(result.canonicalPhoto);
-        setPhotoFromDataCollection(true);
-      } else if (result.externalImageUrl) {
+      if (result.externalImageUrl) {
         const imageFile = await fetchExternalProductImage(result.externalImageUrl);
         if (imageFile) {
           setPhotoFile(imageFile);
@@ -196,8 +168,6 @@ export default function ItemFormPage() {
     setSearchStatus('');
     setSearchErrorMessage('');
     setCategory('');
-    setPhotoCandidates([]);
-    setPhotoFromDataCollection(false);
   }
 
   async function handleSubmit(e) {
@@ -269,31 +239,10 @@ export default function ItemFormPage() {
           <img src={previewUrl} alt={t('itemForm.previewAlt')} />
         </div>
       )}
-      {photoFromDataCollection ? (
-        <p className="search-status">{t('itemForm.photoOnFile')}</p>
-      ) : (
-        <label className="btn-outline photo-upload-btn">
-          {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
-          <input type="file" accept="image/*" onChange={handlePhotoChange} hidden />
-        </label>
-      )}
-      {!photoFromDataCollection && photoCandidates.length > 0 && (
-        <div className="photo-candidates-wrap">
-          <p className="search-status">{t('itemForm.photoCandidatesHint')}</p>
-          <div className="photo-candidates">
-            {photoCandidates.map((candidate, i) => (
-              <button
-                type="button"
-                key={i}
-                className="photo-candidate"
-                onClick={() => handlePickCandidate(candidate.base64)}
-              >
-                <img src={candidate.base64} alt={t('itemForm.previewAlt')} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <label className="btn-outline photo-upload-btn">
+        {previewUrl ? t('itemForm.changePhoto') : t('itemForm.uploadPhoto')}
+        <input type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+      </label>
     </div>
   );
 
@@ -360,6 +309,7 @@ export default function ItemFormPage() {
           <p className="search-status">
             {searchStatus === 'found' && t('itemForm.searchFound')}
             {searchStatus === 'notFound' && t('itemForm.searchNotFound')}
+            {searchStatus === 'noLocalData' && t('itemForm.searchNoLocalData')}
             {searchStatus === 'error' && (searchErrorMessage || t('itemForm.searchError'))}
           </p>
         )}
