@@ -2,7 +2,6 @@
 // orchestrating the api + image services. Views should call only this file,
 // never api/itemsApi.js or services/imageService.js directly.
 import * as itemsApi from '../api/itemsApi';
-import { getExternalProductImageUrl, getExternalProductImage } from '../api/barcodeLookupApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { lookupBarcode, lookupBarcodeRow } from './productLookupService';
 import { t } from '../i18n/i18n';
@@ -105,9 +104,7 @@ export async function fetchItemById(itemId) {
 }
 
 // Drives the item form's barcode search button and scan: looks the barcode
-// up in this device's local-data copy (see productLookupService) and, when
-// it isn't there, offers a best-effort photo suggestion from Open Food Facts
-// (name/brand/category are not looked up externally — only the photo). The
+// up in this device's local-data copy (see productLookupService). The
 // caller (ItemFormPage) owns all UI/loading state; this just makes the
 // found/not-found decision and hands back what to show. `status` is
 // 'found', 'notFound', or 'noLocalData' when this device has no copy.
@@ -116,34 +113,16 @@ export async function searchProductByBarcode(barcode) {
   if (!trimmed) return null;
 
   const { row, noLocalData } = await lookupBarcode(trimmed);
-  if (noLocalData) return { status: 'noLocalData', externalImageUrl: null };
+  if (noLocalData) return { status: 'noLocalData' };
   if (row) {
     return {
       status: 'found',
       searchResult: row,
       category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
-      externalImageUrl: null,
     };
   }
 
-  // Not in our own data — no name/category to offer, but still worth a
-  // best-effort photo suggestion from Open Food Facts. Failures here (the
-  // service is down, network error, no photo on file) are all treated the
-  // same as "no photo" rather than surfaced as a search error, since our own
-  // lookup already succeeded (as a miss).
-  const externalImageUrl = await getExternalProductImageUrl(trimmed).catch(() => null);
-  return {
-    status: 'notFound',
-    // Caller only auto-fills this if the user hasn't already picked a photo —
-    // never clobber a manually chosen or existing (edit-mode) photo.
-    externalImageUrl,
-  };
-}
-
-// Fetches the photo Open Food Facts has on file for a search result, ready
-// to run through the same save path as a manually uploaded photo.
-export function fetchExternalProductImage(imageUrl) {
-  return getExternalProductImage(imageUrl);
+  return { status: 'notFound' };
 }
 
 // Looks up the imported row for an item's barcode (via

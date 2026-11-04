@@ -7,7 +7,6 @@ import {
   removeItem,
   fetchItemById,
   searchProductByBarcode,
-  fetchExternalProductImage,
 } from '../services/itemService';
 import { resolveUploaderDisplayName } from '../services/userService';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -146,13 +145,6 @@ export default function ItemFormPage() {
       if (result.status === 'found') {
         setSearchResult(result.searchResult);
         setCategory(result.category || '');
-      }
-      if (result.externalImageUrl) {
-        const imageFile = await fetchExternalProductImage(result.externalImageUrl);
-        if (imageFile) {
-          setPhotoFile(imageFile);
-          setPreviewUrl(URL.createObjectURL(imageFile));
-        }
       }
     } catch (err) {
       setSearchStatus('error');
