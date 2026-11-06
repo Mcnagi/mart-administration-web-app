@@ -1,15 +1,13 @@
 // Resolves the company name for a spreadsheet row's IncoCode column (see
-// services/spreadsheetService.parseExcelFile). An IncoCode looks like "1-0001":
-// the part after the dash is the company code registered in the
-// `companies` collection (see services/companyService) — the part before
-// the dash isn't a company code and is ignored here. Returns null when
-// there's no dash, since without one there's no code to extract (see
-// companyNameFromIncoCode for how that case is still handled).
+// services/spreadsheetService.parseExcelFile). An IncoCode looks like "1-0037":
+// the digits after the dash, leading zeros dropped, are the company code
+// registered in the `companies` collection (see services/companyService) —
+// the part before the dash isn't a company code and is ignored here. Returns
+// null for anything else, such as a date ("2001-01-12") or a value with no
+// dash (see companyNameFromIncoCode for how that case is still handled).
 export function companyCodeFromIncoCode(incoCode) {
-  const trimmed = String(incoCode ?? '').trim();
-  if (!trimmed.includes('-')) return null;
-  const code = Number(trimmed.split('-')[1]);
-  return Number.isInteger(code) ? code : null;
+  const match = String(incoCode ?? '').trim().match(/^\d+-(\d+)$/);
+  return match ? Number(match[1]) : null;
 }
 
 // `companyNameByCode` is the Map produced by companyService.getCompanyNameMap

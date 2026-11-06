@@ -32,6 +32,20 @@ describe('companyCodeFromIncoCode', () => {
   it('returns null when the part after the dash is not numeric', () => {
     expect(companyCodeFromIncoCode('1-abcd')).toBeNull();
   });
+
+  it('drops the leading zeros', () => {
+    expect(companyCodeFromIncoCode('1-0037')).toBe(37);
+    expect(companyCodeFromIncoCode('1-037')).toBe(37);
+    expect(companyCodeFromIncoCode('1-00037')).toBe(37);
+  });
+
+  it('returns null when nothing follows the dash', () => {
+    expect(companyCodeFromIncoCode('1-')).toBeNull();
+  });
+
+  it('returns null for a date', () => {
+    expect(companyCodeFromIncoCode('2001-01-12')).toBeNull();
+  });
 });
 
 describe('companyNameFromIncoCode', () => {

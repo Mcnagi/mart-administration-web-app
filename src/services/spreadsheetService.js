@@ -50,11 +50,16 @@ export async function parseExcelFile(file) {
   XLSX.set_cptable(cptable);
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  const workbook = isBinarySpreadsheet(bytes)
-    ? XLSX.read(buffer, { type: 'array', cellDates: true })
-    : XLSX.read(decodeTextFile(bytes), { type: 'string', cellDates: true });
-  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  const sheet = worksheet ? XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) : [];
+  const text = isBinarySpreadsheet(bytes) ? null : decodeTextFile(bytes);
+  const workbook =
+    text === null
+      ? XLSX.read(buffer, { type: 'array', cellDates: true })
+      : XLSX.read(text, { type: 'string', cellDates: true });
+  const sheetRows = (book) => {
+    const worksheet = book.Sheets[book.SheetNames[0]];
+    return worksheet ? XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) : [];
+  };
+  const sheet = sheetRows(workbook);
   if (sheet.length < 2) {
     throw new Error(t('errors.importEmpty'));
   }
@@ -81,9 +86,14 @@ export async function parseExcelFile(file) {
 
   const companyNameByCode = incoCodeColumn ? await companyService.getCompanyNameMap() : null;
 
+  // Reading a text file guesses at each value's type, which turns an IncoCode
+  // like 1-0012 into the date January 12. Those cells are taken from a second
+  // read that leaves every value as written. Rows line up, blank ones included.
+  const rawRows = incoCodeColumn && text !== null ? sheetRows(XLSX.read(text, { type: 'string', raw: true })) : null;
+
   const rowsByBarcode = new Map();
   let skipped = 0;
-  dataRows.forEach((row) => {
+  dataRows.forEach((row, rowIndex) => {
     const fields = {};
     columns.forEach(({ key, index }) => {
       const value = normalizeCellValue(row[index], cptable);
@@ -102,6 +112,9 @@ export async function parseExcelFile(file) {
     if (hasSalePriceColumn && !fields.salePrice) {
       skipped += 1;
       return;
+    }
+    if (rawRows) {
+      fields.incoCode = normalizeCellValue(rawRows[rowIndex + 1]?.[incoCodeColumn.index], cptable);
     }
     if (companyNameByCode) {
       fields.companyName = companyNameFromIncoCode(fields.incoCode, companyNameByCode);
