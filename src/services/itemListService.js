@@ -10,6 +10,7 @@ import * as settingsApi from '../api/settingsApi';
 import { barcodeCandidates } from './productLookupService';
 import { getLocalBarcodeIndex, findLocalRow, fetchRemoteMeta } from './localDataService';
 import { columnValue, mergeClassColumns } from '../utils/classColumns';
+import { copyTableToClipboard } from '../utils/tableClipboard';
 import { t } from '../i18n/i18n';
 
 // An item list in progress (name/tag/items) not yet saved — kept so a misclick
@@ -359,6 +360,22 @@ export function clearItemListDraft() {
   }
 }
 
+// Header row plus one row per resolved item, shared by the Excel export and
+// the clipboard copy so they always have the same layout.
+function itemListTableRows(resolvedItems, columns) {
+  return [
+    [t('itemLists.barcodeCol'), ...columns.map((c) => c.label), t('itemLists.quantityCol')],
+    ...resolvedItems.map((item) => [item.barcode, ...columns.map((c) => columnValue(item.row, c)), item.quantity]),
+  ];
+}
+
+// Copies already-resolved items, in the order given, for pasting into Excel.
+// Takes what the page already has rather than loading it, so the clipboard
+// write stays within the click that triggered it.
+export function copyItemListItems(resolvedItems, columns) {
+  return copyTableToClipboard(itemListTableRows(resolvedItems, columns));
+}
+
 // Lazy-loads @e965/xlsx (same pattern as spreadsheetService.parseExcelFile) and
 // triggers a browser download of the list as a single-sheet workbook:
 // barcode, the admin's display columns (under their spreadsheet headers,
@@ -368,12 +385,7 @@ export function clearItemListDraft() {
 export async function exportItemListToExcel(itemList) {
   const [XLSX, { index, columns }] = await Promise.all([import('@e965/xlsx'), loadItemListLookup()]);
   const items = sortItemListItems(resolveItemListItems(normalizeItemListItems(itemList.items), index));
-  const rows = items.map((item) => ({
-    [t('itemLists.barcodeCol')]: item.barcode,
-    ...Object.fromEntries(columns.map((c) => [c.label, columnValue(item.row, c)])),
-    [t('itemLists.quantityCol')]: item.quantity,
-  }));
-  const sheet = XLSX.utils.json_to_sheet(rows);
+  const sheet = XLSX.utils.aoa_to_sheet(itemListTableRows(items, columns));
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'Items');
   XLSX.writeFile(book, `${itemList.name}.xlsx`);

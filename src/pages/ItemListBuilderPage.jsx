@@ -21,6 +21,7 @@ import {
   uniqueItemListCompanies,
   sortItemListItems,
   exportItemListToExcel,
+  copyItemListItems,
   loadItemListDraft,
   saveItemListDraft,
   clearItemListDraft,
@@ -286,6 +287,22 @@ export default function ItemListBuilderPage() {
     }
   }
 
+  // Selection mode copies the ticked rows; otherwise every row in the table.
+  // Selected rows get the table's sort order, whichever order they were ticked.
+  async function handleCopy() {
+    const rows = selecting
+      ? sortItemListItems(resolvedItems.filter((item) => selectedBarcodes.has(item.barcode)))
+      : visibleItems;
+    setError('');
+    try {
+      await copyItemListItems(rows, lookup.columns);
+      setToast(t('itemLists.copied', { count: rows.length }));
+    } catch (err) {
+      console.error('[item lists] copy failed', err);
+      setError(t('itemLists.errorCopy'));
+    }
+  }
+
   if (loading || lookup === null) return <LoadingSpinner />;
 
   const noItems = items.length === 0;
@@ -426,6 +443,16 @@ export default function ItemListBuilderPage() {
                   {t('itemLists.removeSelected', { count: selectedBarcodes.size })}
                 </button>
               )}
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={selecting ? selectedBarcodes.size === 0 : visibleItems.length === 0}
+                onClick={handleCopy}
+              >
+                {selecting
+                  ? t('itemLists.copySelected', { count: selectedBarcodes.size })
+                  : t('itemLists.copyAll', { count: visibleItems.length })}
+              </button>
             </div>
 
             <div className="import-preview-table-wrap item-list-items-wrap">
