@@ -370,6 +370,12 @@ export function copyItemListItems(resolvedItems, columns) {
   return copyTableToClipboard(itemListTableRows(resolvedItems, columns));
 }
 
+// Copies as a one-cell table, so it also keeps its digits when pasted into
+// Excel. Same click-handler requirement as copyItemListItems.
+export function copyItemListBarcode(barcode) {
+  return copyTableToClipboard([[barcode]]);
+}
+
 // Lazy-loads @e965/xlsx (same pattern as spreadsheetService.parseExcelFile) and
 // triggers a browser download of the list as a single-sheet workbook:
 // barcode, the admin's display columns (under their spreadsheet headers,

@@ -21,6 +21,7 @@ import {
   sortItemListItems,
   exportItemListToExcel,
   copyItemListItems,
+  copyItemListBarcode,
   loadItemListDraft,
   saveItemListDraft,
   clearItemListDraft,
@@ -313,6 +314,25 @@ export default function ItemListBuilderPage() {
     }
   }
 
+  // Clicks on the row's own controls keep their usual job, and finishing a
+  // drag over some text leaves that selection there to be copied instead.
+  async function handleRowClick(e, barcode) {
+    if (e.target.closest('button, input, a, label')) return;
+    if (window.getSelection()?.toString()) return;
+    if (selecting) {
+      toggleBarcodeSelected(barcode);
+      return;
+    }
+    setError('');
+    try {
+      await copyItemListBarcode(barcode);
+      setToast(t('itemLists.barcodeCopied', { barcode }));
+    } catch (err) {
+      console.error('[item lists] barcode copy failed', err);
+      setError(t('itemLists.errorCopy'));
+    }
+  }
+
   if (loading || lookup === null) return <LoadingSpinner />;
 
   const noItems = items.length === 0;
@@ -490,7 +510,12 @@ export default function ItemListBuilderPage() {
                 </thead>
                 <tbody>
                   {visibleItems.map((item) => (
-                    <tr key={item.barcode} className={item.row ? '' : 'item-list-row-missing'}>
+                    <tr
+                      key={item.barcode}
+                      className={`item-list-row${item.row ? '' : ' item-list-row-missing'}`}
+                      title={selecting ? undefined : t('itemLists.clickToCopyBarcode')}
+                      onClick={(e) => handleRowClick(e, item.barcode)}
+                    >
                       {selecting && (
                         <td>
                           <input

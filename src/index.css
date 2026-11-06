@@ -935,6 +935,10 @@ textarea:focus {
   overflow-y: auto;
 }
 
+.item-list-row {
+  cursor: pointer;
+}
+
 /* A saved barcode this device's local-data copy doesn't have (or no copy
    at all) — only the barcode and quantity can be shown. */
 .item-list-row-missing td {
