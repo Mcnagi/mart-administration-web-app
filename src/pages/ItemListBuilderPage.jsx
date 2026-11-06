@@ -431,7 +431,7 @@ export default function ItemListBuilderPage() {
                 className={`select-toggle-btn${selecting ? ' active' : ''}`}
                 onClick={() => setSelecting((s) => !s)}
               >
-                {selecting ? t('itemLists.cancelSelect') : t('itemLists.selectToRemove')}
+                {selecting ? t('itemLists.cancelSelect') : t('itemLists.select')}
               </button>
               {selecting && (
                 <button
