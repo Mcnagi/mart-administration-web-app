@@ -1,17 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { classFilterColumns, mergeClassColumns } from './classColumns';
-import { buildItemListFilterGroups, countItemListFilters, filterItemListItems } from './itemListFilters';
+import {
+  BLANK_FILTER_OPTION,
+  buildItemListFilterGroups,
+  countItemListFilters,
+  filterItemListItems,
+} from './itemListFilters';
 
 const item = (barcode, companyName, class1, class2) => ({ barcode, row: { companyName, class1, class2 } });
 const items = [
   item('1', 'Acme', 'Food', 'Dairy'),
   item('2', 'Acme', 'Food', 'Snacks'),
   item('3', 'Birch', 'Home', ''),
-  { barcode: '4', row: null },
 ];
+const missingRow = { barcode: '4', row: null };
+const noCompany = item('5', '', 'Food', 'Dairy');
 const barcodes = (rows) => rows.map((r) => r.barcode);
 
 const barcodeColumn = { key: 'barcode', label: 'Barcode' };
+const company = { key: 'companyName', label: 'Company' };
 const class1 = { key: 'class1', label: 'Main' };
 const class2 = { key: 'class2', label: 'Sub' };
 const class3 = { key: 'class3', label: 'Detail' };
@@ -35,28 +42,33 @@ describe('classFilterColumns', () => {
 });
 
 describe('buildItemListFilterGroups', () => {
-  it('lists company then separate levels, with sorted distinct values', () => {
-    expect(buildItemListFilterGroups(items, [class1, class2, class3], 'Company')).toEqual([
-      { key: 'companyName', label: 'Company', options: ['Acme', 'Birch'] },
+  it('sorts distinct values and adds the blank chip last, only where a row is blank', () => {
+    expect(buildItemListFilterGroups(items, [company, class1, class2])).toEqual([
+      { ...company, options: ['Acme', 'Birch'] },
       { ...class1, options: ['Food', 'Home'] },
-      { ...class2, options: ['Dairy', 'Snacks'] },
+      { ...class2, options: ['Dairy', 'Snacks', BLANK_FILTER_OPTION] },
     ]);
   });
 
-  it('offers combined values as a single group', () => {
-    const groups = buildItemListFilterGroups(items, mergeClassColumns([class1, class2]), 'Company');
-    expect(groups.map((g) => g.key)).toEqual(['companyName', 'classes']);
-    expect(groups[1].label).toBe('Main Sub');
-    expect(groups[1].options).toEqual(['Food Dairy', 'Food Snacks', 'Home']);
+  it('offers combined values as a single group, blank if any field is', () => {
+    const [group, ...rest] = buildItemListFilterGroups(items, mergeClassColumns([class1, class2]));
+    expect(rest).toEqual([]);
+    expect(group.label).toBe('Main Sub');
+    expect(group.options).toEqual(['Food Dairy', 'Food Snacks', 'Home', BLANK_FILTER_OPTION]);
   });
 
-  it('is empty when nothing on the list has a value', () => {
-    expect(buildItemListFilterGroups([{ barcode: '4', row: null }], [class1], 'Company')).toEqual([]);
+  it('counts a row missing from the local copy as blank', () => {
+    const [group] = buildItemListFilterGroups([missingRow], [company]);
+    expect(group.options).toEqual([BLANK_FILTER_OPTION]);
+  });
+
+  it('leaves out every group for an empty list', () => {
+    expect(buildItemListFilterGroups([], [company, class1])).toEqual([]);
   });
 });
 
 describe('filterItemListItems', () => {
-  const groups = buildItemListFilterGroups(items, [class1, class2], 'Company');
+  const groups = buildItemListFilterGroups(items, [company, class1, class2]);
 
   it('returns everything with no selection', () => {
     expect(filterItemListItems(items, { class1: new Set() }, groups)).toBe(items);
@@ -71,13 +83,36 @@ describe('filterItemListItems', () => {
     expect(barcodes(filterItemListItems(items, filters, groups))).toEqual(['1']);
   });
 
-  it('excludes rows missing from the local copy once a filter is on', () => {
-    expect(barcodes(filterItemListItems(items, { class1: new Set(['Home']) }, groups))).toEqual(['3']);
+  it('excludes rows missing from the local copy when filtering by a value', () => {
+    const rows = [...items, missingRow];
+    expect(barcodes(filterItemListItems(rows, { class1: new Set(['Home']) }, groups))).toEqual(['3']);
   });
 
   it('matches on the combined value', () => {
-    const merged = buildItemListFilterGroups(items, mergeClassColumns([class1, class2]), 'Company');
+    const merged = buildItemListFilterGroups(items, mergeClassColumns([class1, class2]));
     expect(barcodes(filterItemListItems(items, { classes: new Set(['Food Dairy']) }, merged))).toEqual(['1']);
+  });
+
+  it('finds blank companies, including rows missing from the local copy', () => {
+    const rows = [...items, noCompany, missingRow];
+    const filters = { companyName: new Set([BLANK_FILTER_OPTION]) };
+    expect(barcodes(filterItemListItems(rows, filters, groups))).toEqual(['5', '4']);
+  });
+
+  it('finds rows blank in any one combined field', () => {
+    const rows = [
+      item('a', 'Acme', 'Food', ''),
+      item('b', 'Acme', '', 'Dairy'),
+      item('c', 'Acme', 'Food', 'Dairy'),
+    ];
+    const merged = buildItemListFilterGroups(rows, mergeClassColumns([class1, class2]));
+    const filters = { classes: new Set([BLANK_FILTER_OPTION]) };
+    expect(barcodes(filterItemListItems(rows, filters, merged))).toEqual(['a', 'b']);
+  });
+
+  it('combines the blank chip with a value in the same group', () => {
+    const filters = { class2: new Set([BLANK_FILTER_OPTION, 'Dairy']) };
+    expect(barcodes(filterItemListItems(items, filters, groups))).toEqual(['1', '3']);
   });
 });
 

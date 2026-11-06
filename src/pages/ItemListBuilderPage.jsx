@@ -26,7 +26,12 @@ import {
   clearItemListDraft,
 } from '../services/itemListService';
 import { columnValue } from '../utils/classColumns';
-import { buildItemListFilterGroups, countItemListFilters, filterItemListItems } from '../utils/itemListFilters';
+import {
+  BLANK_FILTER_OPTION,
+  buildItemListFilterGroups,
+  countItemListFilters,
+  filterItemListItems,
+} from '../utils/itemListFilters';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { BackIcon, ItemListIcon, FilterIcon } from '../components/icons';
@@ -83,10 +88,13 @@ export default function ItemListBuilderPage() {
   // Items only store barcode + quantity; everything else shown comes from
   // the local-data copy, looked up on every change.
   const resolvedItems = useMemo(() => resolveItemListItems(items, lookup?.index ?? null), [items, lookup]);
-  const filterGroups = useMemo(
-    () => buildItemListFilterGroups(resolvedItems, lookup?.filterColumns ?? [], t('itemLists.filterByCompany')),
-    [resolvedItems, lookup, t]
-  );
+  // A blank IncoCode always gives a blank company name, so the company group's
+  // blank chip covers both. No company chips if the copy has no such column.
+  const filterGroups = useMemo(() => {
+    const hasCompany = lookup?.index?.columns.some((c) => c.key === 'companyName');
+    const company = hasCompany ? [{ key: 'companyName', label: t('itemLists.filterByCompany') }] : [];
+    return buildItemListFilterGroups(resolvedItems, [...company, ...(lookup?.filterColumns ?? [])]);
+  }, [resolvedItems, lookup, t]);
   const activeFilterCount = countItemListFilters(filters);
 
   // Always sorted by name, whether or not a filter is active, so the table
@@ -407,7 +415,7 @@ export default function ItemListBuilderPage() {
                                 aria-pressed={selected}
                                 onClick={() => toggleFilter(group.key, option)}
                               >
-                                {option}
+                                {option === BLANK_FILTER_OPTION ? t('itemLists.filterBlank') : option}
                               </button>
                             );
                           })}
