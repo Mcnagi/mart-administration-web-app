@@ -35,6 +35,17 @@ export function mergeClassColumns(columns) {
   });
 }
 
+// The category columns to filter item lists by, given the copy's columns and
+// the columns on display. Off: each class level separately. On: one combined
+// column, the one on display when there is one, so its chips read the same as
+// the table; otherwise all the class levels combined.
+export function classFilterColumns(allColumns, displayColumns, concat) {
+  const classColumns = allColumns.filter((c) => CLASS_KEYS.includes(c.key));
+  if (!concat) return classColumns;
+  const displayed = displayColumns.find((c) => c.sourceKeys);
+  return displayed ? [displayed] : mergeClassColumns(classColumns);
+}
+
 // What `column` shows for `row`, for both plain and combined columns.
 export function columnValue(row, column) {
   return column.sourceKeys ? joinValues(row, column.sourceKeys, CONCAT_DELIMITER) : (row?.[column.key] ?? '');

@@ -18,7 +18,6 @@ import {
   formatItemListBarcode,
   updateItemQuantity,
   resetItemQuantities,
-  uniqueItemListCompanies,
   sortItemListItems,
   exportItemListToExcel,
   copyItemListItems,
@@ -27,6 +26,7 @@ import {
   clearItemListDraft,
 } from '../services/itemListService';
 import { columnValue } from '../utils/classColumns';
+import { buildItemListFilterGroups, countItemListFilters, filterItemListItems } from '../utils/itemListFilters';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { BackIcon, ItemListIcon, FilterIcon } from '../components/icons';
@@ -72,7 +72,8 @@ export default function ItemListBuilderPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedCompanies, setSelectedCompanies] = useState(() => new Set());
+  // Filter group key (see buildItemListFilterGroups) -> its selected values.
+  const [filters, setFilters] = useState({});
   const [selecting, setSelecting] = useState(false);
   const [selectedBarcodes, setSelectedBarcodes] = useState(() => new Set());
   // While on, every scan/manual entry removes that barcode's row instead of
@@ -82,24 +83,25 @@ export default function ItemListBuilderPage() {
   // Items only store barcode + quantity; everything else shown comes from
   // the local-data copy, looked up on every change.
   const resolvedItems = useMemo(() => resolveItemListItems(items, lookup?.index ?? null), [items, lookup]);
-  const companyOptions = useMemo(() => uniqueItemListCompanies(resolvedItems), [resolvedItems]);
+  const filterGroups = useMemo(
+    () => buildItemListFilterGroups(resolvedItems, lookup?.filterColumns ?? [], t('itemLists.filterByCompany')),
+    [resolvedItems, lookup, t]
+  );
+  const activeFilterCount = countItemListFilters(filters);
 
-  // Always sorted by name, whether or not a company filter is active, so
-  // the table and any export reflect the same order.
-  const visibleItems = useMemo(() => {
-    const filtered =
-      selectedCompanies.size === 0
-        ? resolvedItems
-        : resolvedItems.filter((item) => selectedCompanies.has(item.row?.companyName || ''));
-    return sortItemListItems(filtered);
-  }, [resolvedItems, selectedCompanies]);
+  // Always sorted by name, whether or not a filter is active, so the table
+  // and any export reflect the same order.
+  const visibleItems = useMemo(
+    () => sortItemListItems(filterItemListItems(resolvedItems, filters, filterGroups)),
+    [resolvedItems, filters, filterGroups]
+  );
 
-  function toggleCompanyFilter(company) {
-    setSelectedCompanies((prev) => {
-      const next = new Set(prev);
-      if (next.has(company)) next.delete(company);
-      else next.add(company);
-      return next;
+  function toggleFilter(groupKey, value) {
+    setFilters((prev) => {
+      const next = new Set(prev[groupKey]);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, [groupKey]: next };
     });
   }
 
@@ -144,7 +146,7 @@ export default function ItemListBuilderPage() {
     let cancelled = false;
     loadItemListLookup()
       .then((data) => !cancelled && setLookup(data))
-      .catch(() => !cancelled && setLookup({ index: null, columns: [] }));
+      .catch(() => !cancelled && setLookup({ index: null, columns: [], filterColumns: [] }));
     return () => {
       cancelled = true;
     };
@@ -376,44 +378,45 @@ export default function ItemListBuilderPage() {
           <p className="import-hint">{t('itemLists.emptyBuilder')}</p>
         ) : (
           <>
-            {companyOptions.length > 0 && (
+            {filterGroups.length > 0 && (
               <div className="filter-bar">
                 <button
                   type="button"
-                  className={`filter-toggle-btn${selectedCompanies.size > 0 ? ' active' : ''}`}
+                  className={`filter-toggle-btn${activeFilterCount > 0 ? ' active' : ''}`}
                   onClick={() => setFilterOpen((o) => !o)}
                   aria-expanded={filterOpen}
                 >
                   <FilterIcon />
-                  {t('itemLists.filterByCompany')}
-                  {selectedCompanies.size > 0 && <span className="filter-count">{selectedCompanies.size}</span>}
+                  {t('itemLists.filter')}
+                  {activeFilterCount > 0 && <span className="filter-count">{activeFilterCount}</span>}
                 </button>
 
                 {filterOpen && (
                   <div className="filter-panel">
-                    <div className="filter-group">
-                      <div className="filter-group-label">{t('itemLists.filterByCompany')}</div>
-                      <div className="filter-chip-row">
-                        {companyOptions.map((company) => (
-                          <button
-                            key={company}
-                            type="button"
-                            className={`filter-chip${selectedCompanies.has(company) ? ' selected' : ''}`}
-                            aria-pressed={selectedCompanies.has(company)}
-                            onClick={() => toggleCompanyFilter(company)}
-                          >
-                            {company}
-                          </button>
-                        ))}
+                    {filterGroups.map((group) => (
+                      <div key={group.key} className="filter-group">
+                        <div className="filter-group-label">{group.label}</div>
+                        <div className="filter-chip-row">
+                          {group.options.map((option) => {
+                            const selected = filters[group.key]?.has(option) ?? false;
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                className={`filter-chip${selected ? ' selected' : ''}`}
+                                aria-pressed={selected}
+                                onClick={() => toggleFilter(group.key, option)}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    ))}
 
-                    {selectedCompanies.size > 0 && (
-                      <button
-                        type="button"
-                        className="btn-link filter-clear-btn"
-                        onClick={() => setSelectedCompanies(new Set())}
-                      >
+                    {activeFilterCount > 0 && (
+                      <button type="button" className="btn-link filter-clear-btn" onClick={() => setFilters({})}>
                         {t('itemLists.clearFilters')}
                       </button>
                     )}
@@ -528,7 +531,7 @@ export default function ItemListBuilderPage() {
           <button type="button" className="btn-outline" onClick={() => handleExport(visibleItems)} disabled={noItems || exporting}>
             {exporting ? t('itemLists.exporting') : t('itemLists.export')}
           </button>
-          {selectedCompanies.size > 0 && (
+          {activeFilterCount > 0 && (
             <button
               type="button"
               className="btn-outline"

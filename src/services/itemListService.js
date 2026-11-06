@@ -9,7 +9,7 @@ import * as itemListTagsApi from '../api/itemListTagsApi';
 import * as settingsApi from '../api/settingsApi';
 import { barcodeCandidates } from './productLookupService';
 import { getLocalBarcodeIndex, findLocalRow, fetchRemoteMeta } from './localDataService';
-import { columnValue, mergeClassColumns } from '../utils/classColumns';
+import { classFilterColumns, columnValue, mergeClassColumns } from '../utils/classColumns';
 import { copyTableToClipboard } from '../utils/tableClipboard';
 import { t } from '../i18n/i18n';
 
@@ -187,30 +187,24 @@ export function pickDisplayColumns(columns, keys) {
 // Everything an item list view needs to show its items: the local-data
 // barcode index (null when this device has no copy) and the display
 // columns, as { key, label } — read their values with columnValue, since
-// the class columns may be combined into one.
+// the class columns may be combined into one — plus the category columns to
+// filter by (see classFilterColumns).
 export async function loadItemListLookup() {
   const [index, keys, concat] = await Promise.all([
     getLocalBarcodeIndex(),
     fetchItemListDisplayColumnKeys(),
     fetchConcatClassColumns(),
   ]);
-  if (!index) return { index, columns: [] };
-  const columns = pickDisplayColumns(index.columns, keys);
-  return { index, columns: concat ? mergeClassColumns(columns) : columns };
+  if (!index) return { index, columns: [], filterColumns: [] };
+  const picked = pickDisplayColumns(index.columns, keys);
+  const columns = concat ? mergeClassColumns(picked) : picked;
+  return { index, columns, filterColumns: classFilterColumns(index.columns, columns, concat) };
 }
 
 // Pure: each item plus its local-copy row as `row` (null when the barcode
 // isn't in the copy, or there's no copy). The source `items` are untouched.
 export function resolveItemListItems(items, index) {
   return items.map((item) => ({ ...item, row: index ? (findLocalMatch(index, item.barcode)?.row ?? null) : null }));
-}
-
-// Distinct, sorted company names on the (resolved) list — drives the
-// company filter's chip options. Items without a company (not in the local
-// copy, or a copy published without companyName) are excluded from the
-// options rather than shown as a blank chip.
-export function uniqueItemListCompanies(resolvedItems) {
-  return [...new Set(resolvedItems.map((item) => item.row?.companyName).filter(Boolean))].sort();
 }
 
 // Default display/export order: product name, barcode for items without
