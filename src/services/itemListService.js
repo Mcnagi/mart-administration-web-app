@@ -9,6 +9,7 @@ import * as itemListTagsApi from '../api/itemListTagsApi';
 import * as settingsApi from '../api/settingsApi';
 import { barcodeCandidates } from './productLookupService';
 import { getLocalBarcodeIndex, findLocalRow, fetchRemoteMeta } from './localDataService';
+import { columnValue, mergeClassColumns } from '../utils/classColumns';
 import { t } from '../i18n/i18n';
 
 // An item list in progress (name/tag/items) not yet saved — kept so a misclick
@@ -19,8 +20,9 @@ import { t } from '../i18n/i18n';
 const DRAFT_STORAGE_KEY = 'emart-item-list-draft';
 
 // `settings/{SETTINGS_DOC_ID}` holds `displayColumns`: the local-data
-// column keys (in order) the admin chose to show on item lists. Doc ID
-// (like the scanLists/scanListTags collections) keeps the feature's
+// column keys (in order) the admin chose to show on item lists, and
+// `concatClassColumns`: whether class1/2/3 are combined (absent means on).
+// Doc ID (like the scanLists/scanListTags collections) keeps the feature's
 // original "scan list" name so existing data still loads.
 const SETTINGS_DOC_ID = 'scanList';
 
@@ -124,29 +126,44 @@ export function removeScannedBarcode(items, barcode) {
   return next.length === items.length ? items : next;
 }
 
-// Which local-data columns item lists show, as { key, label } in the
-// admin's order (see saveItemListDisplayColumns). Read from Firestore once
-// per session and cached; a failed read falls back to the defaults rather
-// than blocking the list.
-let displayColumnKeysPromise = null;
+// The admin's item list settings doc. Read from Firestore once per session
+// and cached, until an admin saves a change; a failed read falls back to the
+// defaults rather than blocking the caller.
+let settingsPromise = null;
 
-export function fetchItemListDisplayColumnKeys() {
-  if (!displayColumnKeysPromise) {
-    displayColumnKeysPromise = settingsApi
-      .getSetting(SETTINGS_DOC_ID)
-      .then((data) => data?.displayColumns ?? null)
-      .catch((err) => {
-        console.error('[item lists] failed to load display columns', err);
-        displayColumnKeysPromise = null;
-        return null;
-      });
+function fetchItemListSettings() {
+  if (!settingsPromise) {
+    settingsPromise = settingsApi.getSetting(SETTINGS_DOC_ID).catch((err) => {
+      console.error('[item lists] failed to load settings', err);
+      settingsPromise = null;
+      return null;
+    });
   }
-  return displayColumnKeysPromise;
+  return settingsPromise;
 }
 
-export async function saveItemListDisplayColumns(keys) {
-  await settingsApi.setSetting(SETTINGS_DOC_ID, { displayColumns: keys });
-  displayColumnKeysPromise = Promise.resolve(keys);
+async function saveItemListSettings(fields) {
+  await settingsApi.setSetting(SETTINGS_DOC_ID, fields);
+  settingsPromise = null;
+}
+
+// Which local-data columns item lists show, as keys in the admin's order
+// (see saveItemListDisplayColumns), or null when no choice was made yet.
+export async function fetchItemListDisplayColumnKeys() {
+  return (await fetchItemListSettings())?.displayColumns ?? null;
+}
+
+export function saveItemListDisplayColumns(keys) {
+  return saveItemListSettings({ displayColumns: keys });
+}
+
+// Whether class1/2/3 are combined into one space-separated value.
+export async function fetchConcatClassColumns() {
+  return (await fetchItemListSettings())?.concatClassColumns ?? true;
+}
+
+export function saveConcatClassColumns(enabled) {
+  return saveItemListSettings({ concatClassColumns: enabled });
 }
 
 // Columns the admin can pick from: the local-data columns other than
@@ -168,10 +185,17 @@ export function pickDisplayColumns(columns, keys) {
 
 // Everything an item list view needs to show its items: the local-data
 // barcode index (null when this device has no copy) and the display
-// columns, as { key, label }.
+// columns, as { key, label } — read their values with columnValue, since
+// the class columns may be combined into one.
 export async function loadItemListLookup() {
-  const [index, keys] = await Promise.all([getLocalBarcodeIndex(), fetchItemListDisplayColumnKeys()]);
-  return { index, columns: index ? pickDisplayColumns(index.columns, keys) : [] };
+  const [index, keys, concat] = await Promise.all([
+    getLocalBarcodeIndex(),
+    fetchItemListDisplayColumnKeys(),
+    fetchConcatClassColumns(),
+  ]);
+  if (!index) return { index, columns: [] };
+  const columns = pickDisplayColumns(index.columns, keys);
+  return { index, columns: concat ? mergeClassColumns(columns) : columns };
 }
 
 // Pure: each item plus its local-copy row as `row` (null when the barcode
@@ -346,7 +370,7 @@ export async function exportItemListToExcel(itemList) {
   const items = sortItemListItems(resolveItemListItems(normalizeItemListItems(itemList.items), index));
   const rows = items.map((item) => ({
     [t('itemLists.barcodeCol')]: item.barcode,
-    ...Object.fromEntries(columns.map((c) => [c.label, item.row?.[c.key] ?? ''])),
+    ...Object.fromEntries(columns.map((c) => [c.label, columnValue(item.row, c)])),
     [t('itemLists.quantityCol')]: item.quantity,
   }));
   const sheet = XLSX.utils.json_to_sheet(rows);

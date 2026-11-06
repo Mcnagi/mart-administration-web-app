@@ -4,6 +4,8 @@
 import * as itemsApi from '../api/itemsApi';
 import { fileToCompressedBase64, isImageFile } from './imageService';
 import { lookupBarcode, lookupBarcodeRow } from './productLookupService';
+import { fetchConcatClassColumns } from './itemListService';
+import { classCategory } from '../utils/classColumns';
 import { t } from '../i18n/i18n';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -118,7 +120,7 @@ export async function searchProductByBarcode(barcode) {
     return {
       status: 'found',
       searchResult: row,
-      category: [row.class1, row.class2, row.class3].filter(Boolean).join('-'),
+      category: classCategory(row, await fetchConcatClassColumns()),
     };
   }
 

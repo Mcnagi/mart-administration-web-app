@@ -25,6 +25,7 @@ import {
   saveItemListDraft,
   clearItemListDraft,
 } from '../services/itemListService';
+import { columnValue } from '../utils/classColumns';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { BackIcon, ItemListIcon, FilterIcon } from '../components/icons';
@@ -463,7 +464,7 @@ export default function ItemListBuilderPage() {
                         </td>
                       )}
                       {lookup.columns.map((col) => (
-                        <td key={col.key}>{item.row?.[col.key] ?? ''}</td>
+                        <td key={col.key}>{columnValue(item.row, col)}</td>
                       ))}
                       <td title={item.barcode}>{formatItemListBarcode(item.barcode)}</td>
                       <td>

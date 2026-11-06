@@ -14,7 +14,8 @@ export async function getSetting(docId) {
   return snap.exists() ? snap.data() : null;
 }
 
+// Merges, so saving one field of a doc leaves its other fields in place.
 export async function setSetting(docId, data) {
-  await setDoc(doc(settingsCol, docId), { ...data, updatedAt: serverTimestamp() });
+  await setDoc(doc(settingsCol, docId), { ...data, updatedAt: serverTimestamp() }, { merge: true });
   writeLog('write', { action: 'set', collectionName: 'settings', docId });
 }
